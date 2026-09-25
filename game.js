@@ -30,9 +30,10 @@
   ];
   const names = ["VANGUARD", "SENTINEL", "RIPTIDE", "HAMMER", "WRAITH", "BULLDOG", "NOMAD", "TITAN"];
   const keys = new Set();
-  let selectedMode = "duel", selectedBattle = "bots", selectedArena = "foundry";
+  let selectedMode = "duel", selectedBattle = "bots", selectedArena = "foundry", selectedTransport = "internet";
   let game = null, animationId = 0, lastTime = 0, matchStart = 0, elapsed = 0;
-  const network = { peer: null, role: null, roomId: "", playerId: null, connection: null, connections: new Map(), broadcastTimer: 0 };
+  const network = { peer: null, role: null, roomId: "", playerId: null, connection: null, connections: new Map(), broadcastTimer: 0, socket: null, pendingTimer: null, transport: "internet" };
+  const PEER_OPTIONS = { host: "0.peerjs.com", port: 443, secure: true, config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] } };
 
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function random(min, max) { return min + Math.random() * (max - min); }
@@ -52,7 +53,14 @@
     $("onlinePanel").classList.toggle("is-hidden", selectedBattle !== "online");
     $("launchButton").querySelector("span").textContent = selectedBattle === "online" ? "CREATE / DEPLOY ROOM" : "DEPLOY TO ARENA";
   }));
+  document.querySelectorAll("[data-transport]").forEach((button) => button.addEventListener("click", () => {
+    selectedTransport = button.dataset.transport;
+    document.querySelectorAll("[data-transport]").forEach((item) => item.classList.toggle("is-selected", item === button));
+    $("lanHint").classList.toggle("is-hidden", selectedTransport !== "lan");
+    setNetworkStatus(selectedTransport === "lan" ? "LAN MODE READY // LOCAL SERVER REQUIRED" : "ONLINE MODE READY // PEER-TO-PEER");
+  }));
   $("mapSelect").addEventListener("change", (event) => { selectedArena = event.target.value; });
+  $("roomInput").addEventListener("input", (event) => { event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6); });
   $("launchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : createRoom()) : startMatch());
   $("hostButton").addEventListener("click", createRoom);
   $("joinButton").addEventListener("click", joinRoom);
@@ -66,22 +74,47 @@
   function setNetworkStatus(message, state = "") { const status = $("networkStatus"); status.textContent = message; status.className = `network-status${state ? ` is-${state}` : ""}`; }
   function cleanName(value) { const name = String(value || "").replace(/[^a-z0-9 _-]/gi, "").trim().slice(0, 12).toUpperCase(); return name || "VANGUARD"; }
   function playerName() { return cleanName($("playerName").value); }
-  function roomCode() { return `IC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`; }
+  function roomCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
   function setRoomBadge(code) { const box = $("gameRoomBox"); box.classList.toggle("is-hidden", !code); $("gameRoomCode").textContent = code || "—"; }
-  function disconnectNetwork() { if (network.peer) network.peer.destroy(); network.peer = null; network.role = null; network.roomId = ""; network.playerId = null; network.connection = null; network.connections.clear(); setRoomBadge(""); }
+  function disconnectNetwork() { if (network.pendingTimer) clearTimeout(network.pendingTimer); if (network.peer) network.peer.destroy(); if (network.socket) network.socket.close(); network.peer = null; network.socket = null; network.role = null; network.roomId = ""; network.playerId = null; network.connection = null; network.connections.clear(); network.transport = "internet"; setRoomBadge(""); }
   function requirePeer() { if (!window.Peer) { setNetworkStatus("PEERJS DID NOT LOAD // CHECK YOUR CONNECTION", "error"); return null; } return window.Peer; }
+  function makePeer(id) { return id ? new window.Peer(id, PEER_OPTIONS) : new window.Peer(PEER_OPTIONS); }
+  function connectionTimeout(connection, label) { if (network.pendingTimer) clearTimeout(network.pendingTimer); network.pendingTimer = setTimeout(() => { if (!connection.open) { connection.close(); setNetworkStatus(`${label} TIMED OUT // TRY LAN MODE`, "error"); } }, 12000); }
   function createRoom() {
-    const Peer = requirePeer(); if (!Peer) return; disconnectNetwork(); const id = roomCode(); setNetworkStatus("OPENING SECURE ROOM...");
-    network.role = "host"; network.roomId = id; network.peer = new Peer(id);
+    if (selectedTransport === "lan") return createLanRoom();
+    const Peer = requirePeer(); if (!Peer) return; disconnectNetwork(); const id = roomCode(); setNetworkStatus(`OPENING ROOM ${id}...`);
+    network.role = "host"; network.roomId = id; network.transport = "internet"; network.peer = makePeer(id);
     network.peer.on("open", () => { $("hostButton").textContent = id; $("roomInput").value = id; setNetworkStatus(`ROOM ${id} READY // SEND THE CODE TO YOUR FRIEND`, "good"); setRoomBadge(id); startHostMatch(); });
     network.peer.on("connection", (connection) => setupHostConnection(connection));
-    network.peer.on("error", (error) => setNetworkStatus(`ROOM ERROR // ${error.type || "CONNECTION FAILED"}`, "error"));
+    network.peer.on("disconnected", () => setNetworkStatus("SIGNALING SERVER DISCONNECTED // TRY AGAIN", "error"));
+    network.peer.on("error", (error) => { if (error.type === "unavailable-id") { setNetworkStatus("ROOM CODE COLLISION // CLICK CREATE AGAIN", "error"); } else setNetworkStatus(`ROOM ERROR // ${error.type || "CONNECTION FAILED"}`, "error"); });
   }
   function joinRoom() {
-    const Peer = requirePeer(); if (!Peer) return; const id = $("roomInput").value.trim().toUpperCase(); if (!id) { setNetworkStatus("ENTER A ROOM CODE FIRST", "error"); return; }
-    disconnectNetwork(); network.role = "client"; network.roomId = id; setNetworkStatus(`CONNECTING TO ${id}...`); network.peer = new Peer();
-    network.peer.on("open", () => { network.connection = network.peer.connect(id, { reliable: true }); setupClientConnection(network.connection); });
+    const id = $("roomInput").value.replace(/\D/g, "").slice(0, 6); $("roomInput").value = id; if (!/^\d{6}$/.test(id)) { setNetworkStatus("ENTER THE 6-DIGIT ROOM CODE FIRST", "error"); return; }
+    if (selectedTransport === "lan") return joinLanRoom(id);
+    const Peer = requirePeer(); if (!Peer) return; disconnectNetwork(); network.role = "client"; network.roomId = id; network.transport = "internet"; setNetworkStatus(`CONNECTING TO ROOM ${id}...`); network.peer = makePeer();
+    network.peer.on("open", () => { network.connection = network.peer.connect(id, { reliable: true }); setupClientConnection(network.connection); connectionTimeout(network.connection, "INTERNET CONNECTION"); });
+    network.peer.on("disconnected", () => setNetworkStatus("SIGNALING SERVER DISCONNECTED // TRY AGAIN", "error"));
     network.peer.on("error", (error) => setNetworkStatus(`JOIN FAILED // ${error.type || "CHECK THE CODE"}`, "error"));
+  }
+  function lanSocketUrl() { if (!window.WebSocket || location.protocol === "file:" || !location.host) return null; return `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`; }
+  function createLanAdapter(socket, peerId, hostSide) {
+    const handlers = {};
+    return { peer: peerId, open: false, on(event, callback) { handlers[event] = callback; }, send(data) { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "send", to: hostSide ? peerId : undefined, data })); }, close() { socket.close(); }, emit(event, data) { if (handlers[event]) handlers[event](data); } };
+  }
+  function createLanRoom() {
+    const url = lanSocketUrl(); if (!url) { setNetworkStatus("LAN NEEDS THE INCLUDED LOCAL SERVER // RUN NPM START", "error"); return; }
+    disconnectNetwork(); const id = roomCode(); network.role = "host"; network.roomId = id; network.transport = "lan"; setNetworkStatus(`OPENING LAN ROOM ${id}...`); network.socket = new WebSocket(url);
+    network.socket.onopen = () => network.socket.send(JSON.stringify({ type: "host", room: id }));
+    network.socket.onmessage = (event) => { const message = JSON.parse(event.data); if (message.type === "host-ready") { $("hostButton").textContent = id; $("roomInput").value = id; setNetworkStatus(`LAN ROOM ${id} READY // SEND THE CODE`, "good"); setRoomBadge(id); startHostMatch(); } if (message.type === "peer-join") { const connection = createLanAdapter(network.socket, message.peerId, true); network.connections.set(message.peerId, connection); setupHostConnection(connection); connection.open = true; connection.emit("open"); } if (message.type === "data") { const connection = network.connections.get(message.from); if (connection) connection.emit("data", message.data); } if (message.type === "peer-leave") { const connection = network.connections.get(message.peerId); if (connection) connection.emit("close"); network.connections.delete(message.peerId); } if (message.type === "server-error") setNetworkStatus(`LAN ERROR // ${message.message}`, "error"); };
+    network.socket.onerror = () => setNetworkStatus("LAN SERVER UNREACHABLE // OPEN THE LOCAL URL", "error"); network.socket.onclose = () => { if (network.role === "host") setNetworkStatus("LAN SERVER CLOSED", "error"); };
+  }
+  function joinLanRoom(id) {
+    const url = lanSocketUrl(); if (!url) { setNetworkStatus("LAN NEEDS THE INCLUDED LOCAL SERVER // RUN NPM START", "error"); return; }
+    disconnectNetwork(); network.role = "client"; network.roomId = id; network.transport = "lan"; setNetworkStatus(`CONNECTING TO LAN ROOM ${id}...`); network.socket = new WebSocket(url);
+    network.socket.onopen = () => network.socket.send(JSON.stringify({ type: "join", room: id }));
+    network.socket.onmessage = (event) => { const message = JSON.parse(event.data); if (message.type === "joined") { const connection = createLanAdapter(network.socket, "LAN-HOST", false); setupClientConnection(connection); connection.open = true; connection.emit("open"); setNetworkStatus("CONNECTED TO LAN // WAITING FOR HOST", "good"); } if (message.type === "data") network.connection && network.connection.emit("data", message.data); if (message.type === "server-error") setNetworkStatus(`LAN ERROR // ${message.message}`, "error"); };
+    network.socket.onerror = () => setNetworkStatus("LAN SERVER UNREACHABLE // OPEN THE LOCAL URL", "error"); network.socket.onclose = () => { if (!game || game.onlineClient) setNetworkStatus("LAN SERVER CLOSED", "error"); };
   }
   function setupHostConnection(connection) {
     connection.on("open", () => { network.connections.set(connection.peer, connection); connection.send({ type: "welcome", mode: selectedMode, arena: selectedArena }); });
@@ -91,7 +124,7 @@
   }
   function setupClientConnection(connection) {
     network.connection = connection;
-    connection.on("open", () => { connection.send({ type: "join", name: playerName() }); setNetworkStatus("CONNECTED // WAITING FOR HOST", "good"); });
+    connection.on("open", () => { if (network.pendingTimer) clearTimeout(network.pendingTimer); connection.send({ type: "join", name: playerName() }); setNetworkStatus(`CONNECTED // WAITING FOR HOST`, "good"); });
     connection.on("data", (message) => handleClientMessage(message));
     connection.on("close", () => setNetworkStatus("HOST CONNECTION LOST // RETURN TO LOBBY", "error"));
     connection.on("error", () => setNetworkStatus("NETWORK ERROR // TRY AGAIN", "error"));

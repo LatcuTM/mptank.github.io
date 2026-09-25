@@ -90,8 +90,9 @@
 
             <div id="onlinePanel" class="online-panel is-hidden">
               <div class="online-panel-copy"><span class="online-signal"></span><div><strong>WEBRTC ROOM LINK</strong><p>Create a room and send the code to your friend, or join one below.</p></div></div>
+              <div class="transport-toggle" id="transportMode"><button class="is-selected" data-transport="internet">INTERNET</button><button data-transport="lan">LAN</button></div>
               <div class="online-actions"><button id="hostButton" class="online-button is-primary">CREATE ROOM</button><span class="online-or">OR</span><input id="roomInput" maxlength="8" placeholder="ROOM CODE" autocomplete="off" /><button id="joinButton" class="online-button">JOIN ROOM</button></div>
-              <div id="networkStatus" class="network-status">ONLINE MODE READY // PEER-TO-PEER</div>
+              <div id="networkStatus" class="network-status">ONLINE MODE READY // PEER-TO-PEER</div><div id="lanHint" class="network-status is-hidden">LAN MODE // RUN <strong>npm start</strong> ON THE HOST COMPUTER, THEN OPEN ITS LOCAL URL</div>
             </div>
 
             <button id="launchButton" class="launch-button">

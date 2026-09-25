@@ -8,6 +8,10 @@ Select **ONLINE ROOM**, choose the same mode and arena, then click **CREATE ROOM
 
 The host browser runs the match simulation and synchronizes the live state to connected players. PeerJS provides signaling, while gameplay data travels through browser WebRTC connections. Both players should use the same deployed `https://` URL.
 
+## LAN multiplayer
+
+For a same-Wi-Fi match, download the project, install Node.js, then run `npm install` followed by `npm start` on one computer. Open the printed `http://<LAN-IP>:8787` URL on every computer, select **ONLINE ROOM → LAN**, and use the six-digit room code. The included `lan-server.js` relays the game data only across your local network.
+
 ## Local modes
 
 - **VS BOTS** lets the computer fill every open slot.
