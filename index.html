@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08111f" />
+    <meta name="description" content="IRONCLASH — a browser-based local multiplayer tank arena." />
+    <title>IRONCLASH // Tank Arena</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="scanlines" aria-hidden="true"></div>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <div class="brand-name">IRONCLASH</div>
+            <div class="brand-subtitle">TACTICAL TANK ARENA</div>
+          </div>
+        </div>
+        <div class="topbar-status"><span class="status-dot"></span> LOCAL NETWORK // READY</div>
+      </header>
+
+      <section id="lobby" class="screen lobby-screen">
+        <div class="hero-copy">
+          <p class="eyebrow">// OPERATIONAL BRIEFING 07</p>
+          <h1>Own the<br /><em>battlefield.</em></h1>
+          <p class="hero-intro">A compact tank arena built for loud keyboards, fast decisions, and the last crew standing.</p>
+        </div>
+
+        <div class="setup-grid">
+          <div class="setup-main panel-glass">
+            <div class="panel-heading">
+              <div>
+                <p class="section-kicker">01 / SELECT OPERATION</p>
+                <h2>Choose your theatre</h2>
+              </div>
+              <div class="tiny-label">MATCH CONFIG</div>
+            </div>
+            <div class="mode-grid" id="modeGrid">
+              <button class="mode-card is-selected" data-mode="duel">
+                <span class="mode-number">01</span>
+                <span class="mode-icon">◈</span>
+                <span class="mode-name">DUEL</span>
+                <span class="mode-detail">1v1 // 2 TANKS</span>
+                <span class="mode-description">Precision wins. No room to hide.</span>
+              </button>
+              <button class="mode-card" data-mode="squad">
+                <span class="mode-number">02</span>
+                <span class="mode-icon">◆◆</span>
+                <span class="mode-name">SQUAD</span>
+                <span class="mode-detail">2v2 // 4 TANKS</span>
+                <span class="mode-description">Coordinate fire. Break their line.</span>
+              </button>
+              <button class="mode-card" data-mode="warfront">
+                <span class="mode-number">03</span>
+                <span class="mode-icon">◆◆◆</span>
+                <span class="mode-name">WARFRONT</span>
+                <span class="mode-detail">4v4 // 8 TANKS</span>
+                <span class="mode-description">Total arena control. Maximum chaos.</span>
+              </button>
+            </div>
+
+            <div class="config-row">
+              <div class="config-field">
+                <label for="mapSelect">ARENA</label>
+                <div class="select-wrap"><select id="mapSelect">
+                  <option value="foundry">FOUNDRY RUN</option>
+                  <option value="bunker">BUNKER GRID</option>
+                  <option value="sandline">SANDLINE</option>
+                </select></div>
+              </div>
+              <div class="config-field battle-type-field">
+                <label>OPPONENT PROTOCOL</label>
+                <div class="segmented-control" id="battleType">
+                  <button class="is-selected" data-battle="bots">VS BOTS</button>
+                  <button data-battle="local">LOCAL PARTY</button>
+                </div>
+              </div>
+            </div>
+
+            <button id="launchButton" class="launch-button">
+              <span>DEPLOY TO ARENA</span><span class="launch-arrow">↗</span>
+            </button>
+            <p class="launch-note"><span class="live-pulse"></span> Bots fill open slots automatically. No server required.</p>
+          </div>
+
+          <aside class="briefing-panel">
+            <div class="panel-heading compact-heading">
+              <div><p class="section-kicker">02 / FIELD NOTES</p><h2>How to survive</h2></div>
+              <span class="panel-stamp">SIM // 2.4</span>
+            </div>
+            <div class="rule-list">
+              <div class="rule-item"><span class="rule-index">A</span><div><strong>MOVE WITH INTENT</strong><p>Cover is a resource. Use the walls to break line of sight.</p></div></div>
+              <div class="rule-item"><span class="rule-index">B</span><div><strong>LAND THE HIT</strong><p>Shells are limited by reload time. Make every burst count.</p></div></div>
+              <div class="rule-item"><span class="rule-index">C</span><div><strong>HOLD THE LINE</strong><p>Eliminate the opposing team to claim the arena.</p></div></div>
+            </div>
+            <div class="briefing-footer"><span>EST. SESSION</span><strong>03:00</strong><span class="footer-divider"></span><span>PLAYERS</span><strong id="playersCount">2</strong></div>
+          </aside>
+        </div>
+
+        <div class="lobby-footer"><span>WASD / ARROWS TO MOVE</span><span class="footer-center">LOCAL MULTIPLAYER // SAME KEYBOARD</span><span>IRONCLASH SYSTEMS © 2025</span></div>
+      </section>
+
+      <section id="game" class="screen game-screen is-hidden">
+        <div class="game-header">
+          <div class="game-title-lockup"><span class="mini-mark">▰</span><div><strong>IRONCLASH</strong><span id="matchLabel">// DUEL / FOUNDRY RUN</span></div></div>
+          <div class="match-clock-wrap"><span class="clock-label">MATCH TIME</span><span id="matchClock">03:00</span></div>
+          <button id="quitButton" class="quit-button">EXIT MATCH <span>Esc</span></button>
+        </div>
+        <div class="arena-layout">
+          <aside class="team-sidebar team-blue">
+            <div class="team-header"><span><i class="team-dot"></i> BLUE SQUAD</span><strong id="blueScore">0</strong></div>
+            <div id="blueRoster" class="roster"></div>
+            <div class="team-tip">YOUR TEAM <span>◆</span></div>
+          </aside>
+          <div class="canvas-wrap">
+            <canvas id="gameCanvas" width="1200" height="700" aria-label="IRONCLASH game arena"></canvas>
+            <div class="canvas-hud"><span class="hud-corner tl"></span><span class="hud-corner tr"></span><span class="hud-corner bl"></span><span class="hud-corner br"></span><div class="arena-name"><span class="hud-dot"></span><span id="arenaLabel">FOUNDRY RUN</span></div><div class="objective-label">OBJECTIVE: <strong>ELIMINATE ENEMY TEAM</strong></div></div>
+            <div id="countdown" class="countdown is-hidden">3</div>
+            <div id="gameToast" class="game-toast is-hidden"></div>
+          </div>
+          <aside class="team-sidebar team-red">
+            <div class="team-header"><span><i class="team-dot"></i> RED SQUAD</span><strong id="redScore">0</strong></div>
+            <div id="redRoster" class="roster"></div>
+            <div class="team-tip">HOSTILE TEAM <span>◆</span></div>
+          </aside>
+        </div>
+        <div id="controlsLegend" class="controls-legend"></div>
+      </section>
+
+      <section id="results" class="screen results-screen is-hidden">
+        <div class="results-card panel-glass">
+          <p class="eyebrow">// AFTER ACTION REPORT</p>
+          <div id="resultKicker" class="result-kicker blue-text">BLUE SQUAD</div>
+          <h2 id="resultTitle">ARENA SECURED</h2>
+          <p id="resultSummary" class="result-summary">The opposition has been fully neutralized.</p>
+          <div class="result-stats"><div><span>ELAPSED</span><strong id="resultTime">00:00</strong></div><div><span>MODE</span><strong id="resultMode">1v1</strong></div><div><span>ARENA</span><strong id="resultArena">FOUNDRY</strong></div></div>
+          <div class="result-actions"><button id="rematchButton" class="launch-button">REMATCH <span class="launch-arrow">↗</span></button><button id="lobbyButton" class="secondary-button">RETURN TO LOBBY</button></div>
+          <div class="results-tip"><span class="live-pulse"></span> TIP // Teamwork is a weapon. Keep moving.</div>
+        </div>
+      </section>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
