@@ -89,6 +89,28 @@ select:focus { border-color: var(--blue); }
 
 .results-screen { display: grid; place-items: center; padding-top: 0; }.results-card { width: min(540px, 100%); padding: 48px 52px 32px; text-align: center; }.results-card::before { left: 50%; transform: translateX(-50%); }.results-card .eyebrow { margin-bottom: 28px; }.result-kicker { font: 600 15px var(--font-display); letter-spacing: .19em; }.blue-text { color: var(--blue); }.red-text { color: var(--red); }.gold-text { color: var(--gold); }.results-card h2 { margin: 6px 0 11px; font: 700 clamp(42px, 7vw, 62px)/.95 var(--font-display); letter-spacing: .02em; }.result-summary { color: var(--muted); font-size: 12px; }.result-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin: 28px 0 23px; padding: 17px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }.result-stats div { border-right: 1px solid var(--line); }.result-stats div:last-child { border: 0; }.result-stats span { display: block; color: var(--faint); font-size: 8px; }.result-stats strong { display: block; margin-top: 5px; font: 600 19px var(--font-display); letter-spacing: .07em; }.result-actions { display: grid; grid-template-columns: 1.25fr .95fr; gap: 8px; }.result-actions .launch-button { margin: 0; min-height: 46px; justify-content: center; gap: 12px; font-size: 13px; padding-left: 12px; }.secondary-button { min-height: 46px; }.results-tip { margin-top: 23px; color: var(--faint); font-size: 8px; }.results-tip .live-pulse { width: 4px; height: 4px; margin-right: 6px; }
 
+/* ── Waiting Room ──────────────────────────────────────────────────────── */
+.waiting-screen { display: grid; place-items: center; padding-top: 0; }
+.waiting-card { width: min(520px, 100%); padding: 48px 52px 36px; text-align: center; }
+.waiting-card::before { left: 50%; transform: translateX(-50%); }
+.waiting-card h2 { margin: 6px 0 10px; font: 700 clamp(36px,6vw,52px)/.95 var(--font-display); letter-spacing:.02em; text-transform:uppercase; }
+.wait-subtitle { color:var(--muted); font-size:12px; margin:0 0 28px; }
+.wait-room-code-box { display:inline-flex; flex-direction:column; align-items:center; gap:4px; padding:14px 32px; border:1px solid rgba(76,200,223,.45); background:rgba(76,200,223,.06); margin-bottom:28px; }
+.wait-code-label { color:var(--faint); font-size:8px; letter-spacing:.18em; }
+.wait-room-code-box strong { font:700 36px/1 var(--font-display); letter-spacing:.22em; color:var(--blue-bright); text-shadow:0 0 18px rgba(76,200,223,.55); }
+.wait-roster-wrap { text-align:left; border:1px solid var(--line); background:rgba(4,13,24,.55); padding:14px 16px; margin-bottom:18px; }
+.wait-roster-header { display:flex; justify-content:space-between; color:var(--faint); font-size:8px; letter-spacing:.14em; margin-bottom:12px; }
+.wait-player-list { display:flex; flex-direction:column; gap:7px; }
+.wait-player-entry { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid var(--line); background:rgba(12,27,41,.65); }
+.wait-player-entry.wait-host { border-color:rgba(76,200,223,.35); background:rgba(21,73,87,.35); }
+.wait-player-name { font:600 12px var(--font-display); letter-spacing:.08em; color:var(--ink); }
+.wait-player-badge { font-size:7px; letter-spacing:.12em; color:var(--faint); padding:2px 6px; border:1px solid var(--line); background:rgba(4,13,24,.5); }
+.wait-host .wait-player-badge { color:var(--blue); border-color:rgba(76,200,223,.4); }
+.wait-badge-ready { color:#8bf0a6; border-color:rgba(139,240,166,.4); }
+.wait-actions { display:grid; grid-template-columns:1.3fr 1fr; gap:9px; margin-top:8px; }
+.wait-actions .launch-button { margin:0; min-height:46px; justify-content:center; gap:12px; font-size:13px; }
+.wait-actions .secondary-button { min-height:46px; }
+
 @media (max-width: 1100px) { .mode-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .app-shell { padding: 0 20px; }.setup-grid { grid-template-columns: 1fr; }.briefing-panel { min-height: 0; }.arena-layout { grid-template-columns: 100px minmax(0, 1fr) 100px 100px; gap: 7px; }.team-sidebar { padding: 10px 7px; }.team-header { font-size: 7px; }.team-header strong { font-size: 19px; }.roster-name { font-size: 8px; }.controls-legend { font-size: 7px; } }
 @media (max-width: 610px) { .topbar { height: 70px; }.topbar-status { display: none; }.screen { min-height: calc(100vh - 70px); padding-top: 42px; }.hero-intro { font-size: 12px; margin-top: 20px; }.setup-grid { margin-top: 35px; }.setup-main, .briefing-panel { padding: 23px 18px 20px; }.panel-heading h2 { font-size: 25px; }.mode-grid { grid-template-columns: 1fr; }.mode-card { min-height: 114px; padding: 15px; }.mode-icon { margin: 8px 0; }.config-row { grid-template-columns: 1fr; gap: 15px; }.online-panel { display: block; }.online-actions { margin-top: 12px; flex-wrap: wrap; }.online-actions input { flex: 1; min-width: 90px; }.lobby-footer { flex-wrap: wrap; gap: 10px; margin-top: 35px; }.footer-center { order: 3; width: 100%; }.game-header { margin-top: -10px; }.game-title-lockup strong { font-size: 15px; }.match-clock-wrap { margin-left: auto; margin-right: 10px; }.quit-button { padding: 8px; font-size: 0; }.quit-button span { margin: 0; font-size: 8px; }.arena-layout { grid-template-columns: 1fr; }.team-sidebar { min-height: 0; display: block; border: 1px solid var(--line); }.team-red { order: 3; }.roster { display: flex; gap: 5px; margin-top: 8px; overflow-x: auto; }.roster-entry { min-width: 88px; margin: 0; }.team-tip { display: none; }.canvas-wrap { grid-row: 1; }.results-card { padding: 38px 22px 25px; }.result-actions { grid-template-columns: 1fr; } }

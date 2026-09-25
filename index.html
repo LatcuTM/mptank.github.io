@@ -56,15 +56,8 @@
                 <span class="mode-detail">2v2 // 4 TANKS</span>
                 <span class="mode-description">Coordinate fire. Break their line.</span>
               </button>
-              <button class="mode-card" data-mode="warfront">
-                <span class="mode-number">03</span>
-                <span class="mode-icon">◆◆◆</span>
-                <span class="mode-name">WARFRONT</span>
-                <span class="mode-detail">4v4 // 8 TANKS</span>
-                <span class="mode-description">Total arena control. Maximum chaos.</span>
-              </button>
               <button class="mode-card" data-mode="triple">
-                <span class="mode-number">04</span>
+                <span class="mode-number">03</span>
                 <span class="mode-icon">◆◇◆</span>
                 <span class="mode-name">TRIPLE THREAT</span>
                 <span class="mode-detail">1v1v1 // 3 TANKS</span>
@@ -90,22 +83,26 @@
                 </div>
               </div>
               <div class="config-field">
-                <label for="playerName">CALLSIGN</label>
+                <label for="playerName">NAME</label>
                 <input id="playerName" class="callsign-input" maxlength="12" value="VANGUARD" autocomplete="nickname" />
               </div>
             </div>
 
             <div id="onlinePanel" class="online-panel is-hidden">
-              <div class="online-panel-copy"><span class="online-signal"></span><div><strong>WEBRTC ROOM LINK</strong><p>Create a room and send the code to your friend, or join one below.</p></div></div>
-              <div class="transport-toggle" id="transportMode"><button class="is-selected" data-transport="internet">INTERNET</button><button data-transport="lan">LAN</button></div>
-              <div class="online-actions"><button id="hostButton" class="online-button is-primary">CREATE ROOM</button><span class="online-or">OR</span><input id="roomInput" maxlength="8" placeholder="ROOM CODE" autocomplete="off" /><button id="joinButton" class="online-button">JOIN ROOM</button></div>
-              <div id="networkStatus" class="network-status">ONLINE MODE READY // PEER-TO-PEER</div><div id="lanHint" class="network-status is-hidden">LAN MODE // RUN <strong>npm start</strong> ON THE HOST COMPUTER, THEN OPEN ITS LOCAL URL</div>
+              <div class="online-panel-copy"><span class="online-signal"></span><div><strong>LAN ROOM LINK</strong><p>Run <strong>npm start</strong> on the host machine, then open its local URL on all devices.</p></div></div>
+              <div class="online-actions">
+                <button id="hostButton" class="online-button is-primary">CREATE ROOM</button>
+                <span class="online-or">OR</span>
+                <input id="roomInput" maxlength="8" placeholder="ROOM CODE" autocomplete="off" />
+                <button id="joinButton" class="online-button">JOIN ROOM</button>
+              </div>
+              <div id="networkStatus" class="network-status">LAN MODE READY // RUN NPM START ON HOST</div>
             </div>
 
             <button id="launchButton" class="launch-button">
               <span>DEPLOY TO ARENA</span><span class="launch-arrow">↗</span>
             </button>
-            <p class="launch-note"><span class="live-pulse"></span> Bots fill open slots automatically. Online rooms use peer-to-peer WebRTC.</p>
+            <p class="launch-note"><span class="live-pulse"></span> Bots fill open slots automatically. Multiplayer uses LAN — run <strong>npm start</strong> first.</p>
           </div>
 
           <aside class="briefing-panel">
@@ -123,6 +120,35 @@
         </div>
 
         <div class="lobby-footer"><span>WASD / ARROWS TO MOVE</span><span class="footer-center">BROWSER MULTIPLAYER // LOCAL OR ONLINE</span><span>IRONCLASH SYSTEMS © 2025</span></div>
+      </section>
+
+      <!-- ══ WAITING ROOM ══════════════════════════════════════════════════ -->
+      <section id="waiting" class="screen waiting-screen is-hidden">
+        <div class="waiting-card panel-glass">
+          <p class="eyebrow">// STAGING AREA</p>
+          <h2>Waiting for players</h2>
+          <p class="wait-subtitle">Share the room code below. Host presses <strong>START MATCH</strong> when everyone's in.</p>
+
+          <div class="wait-room-code-box">
+            <span class="wait-code-label">ROOM CODE</span>
+            <strong id="waitRoomCode">——————</strong>
+          </div>
+
+          <div class="wait-roster-wrap">
+            <div class="wait-roster-header">
+              <span>DEPLOYED UNITS</span>
+              <span id="waitPlayerCount">1 / — PLAYERS</span>
+            </div>
+            <div id="waitPlayerList" class="wait-player-list"></div>
+          </div>
+
+          <div id="waitNetworkStatus" class="network-status" style="margin-top:10px;text-align:center;"></div>
+
+          <div class="wait-actions">
+            <button id="waitStartButton" class="launch-button">START MATCH <span class="launch-arrow">↗</span></button>
+            <button id="waitLeaveButton" class="secondary-button">LEAVE ROOM</button>
+          </div>
+        </div>
       </section>
 
       <section id="game" class="screen game-screen is-hidden">
@@ -171,7 +197,6 @@
         </div>
       </section>
     </main>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="game.js"></script>
   </body>
 </html>
