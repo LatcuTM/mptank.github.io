@@ -79,14 +79,25 @@
                 <div class="segmented-control" id="battleType">
                   <button class="is-selected" data-battle="bots">VS BOTS</button>
                   <button data-battle="local">LOCAL PARTY</button>
+                  <button data-battle="online">ONLINE ROOM</button>
                 </div>
               </div>
+              <div class="config-field">
+                <label for="playerName">CALLSIGN</label>
+                <input id="playerName" class="callsign-input" maxlength="12" value="VANGUARD" autocomplete="nickname" />
+              </div>
+            </div>
+
+            <div id="onlinePanel" class="online-panel is-hidden">
+              <div class="online-panel-copy"><span class="online-signal"></span><div><strong>WEBRTC ROOM LINK</strong><p>Create a room and send the code to your friend, or join one below.</p></div></div>
+              <div class="online-actions"><button id="hostButton" class="online-button is-primary">CREATE ROOM</button><span class="online-or">OR</span><input id="roomInput" maxlength="8" placeholder="ROOM CODE" autocomplete="off" /><button id="joinButton" class="online-button">JOIN ROOM</button></div>
+              <div id="networkStatus" class="network-status">ONLINE MODE READY // PEER-TO-PEER</div>
             </div>
 
             <button id="launchButton" class="launch-button">
               <span>DEPLOY TO ARENA</span><span class="launch-arrow">↗</span>
             </button>
-            <p class="launch-note"><span class="live-pulse"></span> Bots fill open slots automatically. No server required.</p>
+            <p class="launch-note"><span class="live-pulse"></span> Bots fill open slots automatically. Online rooms use peer-to-peer WebRTC.</p>
           </div>
 
           <aside class="briefing-panel">
@@ -103,7 +114,7 @@
           </aside>
         </div>
 
-        <div class="lobby-footer"><span>WASD / ARROWS TO MOVE</span><span class="footer-center">LOCAL MULTIPLAYER // SAME KEYBOARD</span><span>IRONCLASH SYSTEMS © 2025</span></div>
+        <div class="lobby-footer"><span>WASD / ARROWS TO MOVE</span><span class="footer-center">BROWSER MULTIPLAYER // LOCAL OR ONLINE</span><span>IRONCLASH SYSTEMS © 2025</span></div>
       </section>
 
       <section id="game" class="screen game-screen is-hidden">
@@ -145,6 +156,7 @@
         </div>
       </section>
     </main>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

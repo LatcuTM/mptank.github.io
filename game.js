@@ -32,6 +32,7 @@
   const keys = new Set();
   let selectedMode = "duel", selectedBattle = "bots", selectedArena = "foundry";
   let game = null, animationId = 0, lastTime = 0, matchStart = 0, elapsed = 0;
+  const network = { peer: null, role: null, roomId: "", playerId: null, connection: null, connections: new Map(), broadcastTimer: 0 };
 
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function random(min, max) { return min + Math.random() * (max - min); }
@@ -48,24 +49,79 @@
   document.querySelectorAll("[data-battle]").forEach((button) => button.addEventListener("click", () => {
     selectedBattle = button.dataset.battle;
     document.querySelectorAll("[data-battle]").forEach((item) => item.classList.toggle("is-selected", item === button));
+    $("onlinePanel").classList.toggle("is-hidden", selectedBattle !== "online");
   }));
   $("mapSelect").addEventListener("change", (event) => { selectedArena = event.target.value; });
-  $("launchButton").addEventListener("click", startMatch);
-  $("rematchButton").addEventListener("click", startMatch);
-  $("lobbyButton").addEventListener("click", () => { stopGame(); showScreen("lobby"); });
-  $("quitButton").addEventListener("click", () => { stopGame(); showScreen("lobby"); });
-  window.addEventListener("keydown", (event) => { keys.add(event.code); if (event.code === "Escape" && game) { stopGame(); showScreen("lobby"); } if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault(); });
+  $("launchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : setNetworkStatus("CREATE A ROOM OR JOIN ONE FIRST", "error")) : startMatch());
+  $("hostButton").addEventListener("click", createRoom);
+  $("joinButton").addEventListener("click", joinRoom);
+  $("rematchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : setNetworkStatus("THE HOST MUST START THE REMATCH", "error")) : startMatch());
+  $("lobbyButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
+  $("quitButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
+  window.addEventListener("keydown", (event) => { keys.add(event.code); if (event.code === "Escape" && game) { stopGame(); disconnectNetwork(); showScreen("lobby"); } if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault(); });
   window.addEventListener("keyup", (event) => keys.delete(event.code));
 
-  function startMatch() {
+  function setNetworkStatus(message, state = "") { const status = $("networkStatus"); status.textContent = message; status.className = `network-status${state ? ` is-${state}` : ""}`; }
+  function cleanName(value) { const name = String(value || "").replace(/[^a-z0-9 _-]/gi, "").trim().slice(0, 12).toUpperCase(); return name || "VANGUARD"; }
+  function playerName() { return cleanName($("playerName").value); }
+  function roomCode() { return `IC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`; }
+  function disconnectNetwork() { if (network.peer) network.peer.destroy(); network.peer = null; network.role = null; network.roomId = ""; network.playerId = null; network.connection = null; network.connections.clear(); }
+  function requirePeer() { if (!window.Peer) { setNetworkStatus("PEERJS DID NOT LOAD // CHECK YOUR CONNECTION", "error"); return null; } return window.Peer; }
+  function createRoom() {
+    const Peer = requirePeer(); if (!Peer) return; disconnectNetwork(); const id = roomCode(); setNetworkStatus("OPENING SECURE ROOM...");
+    network.role = "host"; network.roomId = id; network.peer = new Peer(id);
+    network.peer.on("open", () => { $("hostButton").textContent = id; $("roomInput").value = id; setNetworkStatus(`ROOM ${id} READY // SEND THE CODE TO YOUR FRIEND`, "good"); startHostMatch(); });
+    network.peer.on("connection", (connection) => setupHostConnection(connection));
+    network.peer.on("error", (error) => setNetworkStatus(`ROOM ERROR // ${error.type || "CONNECTION FAILED"}`, "error"));
+  }
+  function joinRoom() {
+    const Peer = requirePeer(); if (!Peer) return; const id = $("roomInput").value.trim().toUpperCase(); if (!id) { setNetworkStatus("ENTER A ROOM CODE FIRST", "error"); return; }
+    disconnectNetwork(); network.role = "client"; network.roomId = id; setNetworkStatus(`CONNECTING TO ${id}...`); network.peer = new Peer();
+    network.peer.on("open", () => { network.connection = network.peer.connect(id, { reliable: true }); setupClientConnection(network.connection); });
+    network.peer.on("error", (error) => setNetworkStatus(`JOIN FAILED // ${error.type || "CHECK THE CODE"}`, "error"));
+  }
+  function setupHostConnection(connection) {
+    connection.on("open", () => { network.connections.set(connection.peer, connection); connection.send({ type: "welcome", mode: selectedMode, arena: selectedArena }); });
+    connection.on("data", (message) => { if (message.type === "join") assignRemotePlayer(connection, message.name); if (message.type === "input" && game) { const tank = game.tanks.find((item) => item.id === message.playerId && item.connId === connection.peer); if (tank) tank.input = message.input; } });
+    connection.on("close", () => { const tank = game && game.tanks.find((item) => item.connId === connection.peer); if (tank) { tank.remote = false; tank.human = false; tank.connId = null; tank.input = { x: 0, y: 0, fire: false }; } network.connections.delete(connection.peer); });
+    connection.on("error", () => network.connections.delete(connection.peer));
+  }
+  function setupClientConnection(connection) {
+    network.connection = connection;
+    connection.on("open", () => { connection.send({ type: "join", name: playerName() }); setNetworkStatus("CONNECTED // WAITING FOR HOST", "good"); });
+    connection.on("data", (message) => handleClientMessage(message));
+    connection.on("close", () => setNetworkStatus("HOST CONNECTION LOST // RETURN TO LOBBY", "error"));
+    connection.on("error", () => setNetworkStatus("NETWORK ERROR // TRY AGAIN", "error"));
+  }
+  function assignRemotePlayer(connection, requestedName) {
+    if (!game) { connection.send({ type: "error", message: "Host has not deployed yet." }); return; }
+    const tank = game.tanks.find((item) => item.team === "blue" && !item.remote && item.id !== 0) || game.tanks.find((item) => !item.remote && item.id !== 0);
+    if (!tank) { connection.send({ type: "error", message: "This room is full." }); return; }
+    tank.human = true; tank.remote = true; tank.connId = connection.peer; tank.name = cleanName(requestedName); tank.input = { x: 0, y: 0, fire: false }; connection.send({ type: "init", playerId: tank.id, snapshot: serializeGame() }); setNetworkStatus(`ROOM ${network.roomId} // ${network.connections.size} REMOTE PLAYER(S)`, "good"); broadcastState();
+  }
+  function serializeGame() { return { mode: game.mode, arena: game.arena, elapsed, tanks: game.tanks.map((tank) => ({ id: tank.id, team: tank.team, x: tank.x, y: tank.y, angle: tank.angle, health: tank.health, alive: tank.alive, human: tank.human, name: tank.name, kills: tank.kills })), shells: game.shells.map((shell) => ({ x: shell.x, y: shell.y, angle: shell.angle, team: shell.team })), particles: game.particles.slice(-60).map((particle) => ({ x: particle.x, y: particle.y, life: particle.life, size: particle.size, color: particle.color })) }; }
+  function broadcastState() { if (network.role !== "host" || !game) return; const snapshot = { type: "state", snapshot: serializeGame() }; network.connections.forEach((connection) => { if (connection.open) connection.send(snapshot); }); }
+  function handleClientMessage(message) {
+    if (message.type === "init") { network.playerId = message.playerId; loadClientGame(message.snapshot); setNetworkStatus(`CONNECTED // YOU ARE ${game.tanks.find((tank) => tank.id === network.playerId).name}`, "good"); showScreen("game"); renderRoster(); renderLegend(); animationId = requestAnimationFrame(loop); }
+    if (message.type === "state" && game) applySnapshot(message.snapshot);
+    if (message.type === "finish") finishMatch(message.winner, true);
+    if (message.type === "error") setNetworkStatus(message.message, "error");
+  }
+  function loadClientGame(snapshot) { game = { mode: snapshot.mode, arena: snapshot.arena, tanks: [], shells: [], particles: [], winner: null, over: false, countdown: 0, onlineClient: true }; applySnapshot(snapshot); matchStart = performance.now() - snapshot.elapsed * 1000; lastTime = performance.now(); $("matchLabel").textContent = `// ${modeData[snapshot.mode].label} / ${arenaData[snapshot.arena].label}`; $("arenaLabel").textContent = arenaData[snapshot.arena].label; }
+  function applySnapshot(snapshot) { if (!game) return; game.mode = snapshot.mode; game.arena = snapshot.arena; elapsed = snapshot.elapsed; game.tanks = snapshot.tanks.map((item) => ({ ...item, r: 20, spawnX: item.x, spawnY: item.y, cool: 0, flash: 0, hit: 0, control: controls[item.id] || controls[0], remote: item.id !== network.playerId })); game.shells = snapshot.shells.map((item) => ({ ...item, speed: 0, life: .2 })); game.particles = snapshot.particles; }
+
+  function startMatch() { disconnectNetwork(); initializeMatch(false); }
+  function startHostMatch() { initializeMatch(true); }
+  function initializeMatch(onlineHost) {
     stopGame();
     const data = modeData[selectedMode];
-    game = { mode: selectedMode, arena: selectedArena, humanOnly: selectedBattle === "local", tanks: [], shells: [], particles: [], sparks: [], winner: null, over: false, countdown: 3, toast: null };
+    game = { mode: selectedMode, arena: selectedArena, humanOnly: selectedBattle === "local", onlineHost, tanks: [], shells: [], particles: [], sparks: [], winner: null, over: false, countdown: 3, toast: null };
     const blueSpawns = getSpawns("blue", data.roster), redSpawns = getSpawns("red", data.roster);
     for (let i = 0; i < data.roster; i++) {
       game.tanks.push(makeTank(i, "blue", blueSpawns[i], game.humanOnly || i === 0, controls[i]));
       game.tanks.push(makeTank(data.roster + i, "red", redSpawns[i], game.humanOnly ? true : false, controls[data.roster + i]));
     }
+    game.tanks[0].name = playerName();
     matchStart = performance.now(); lastTime = matchStart; elapsed = 0;
     $("matchLabel").textContent = `// ${data.label} / ${arenaData[selectedArena].label}`;
     $("arenaLabel").textContent = arenaData[selectedArena].label;
@@ -85,13 +141,13 @@
     return Array.from({length: count}, (_, i) => ({ x: cx, y: start + i * gap }));
   }
   function makeTank(index, team, spawn, human, control) {
-    return { id: index, team, x: spawn.x, y: spawn.y, spawnX: spawn.x, spawnY: spawn.y, r: 20, angle: team === "blue" ? 0 : Math.PI, health: 100, alive: true, human, control, cool: 0, respawn: 0, flash: 0, kills: 0, hit: 0, name: names[index] || `UNIT-${index + 1}` };
+    return { id: index, team, x: spawn.x, y: spawn.y, spawnX: spawn.x, spawnY: spawn.y, r: 20, angle: team === "blue" ? 0 : Math.PI, health: 100, alive: true, human, remote: false, connId: null, input: { x: 0, y: 0, fire: false }, control, cool: 0, respawn: 0, flash: 0, kills: 0, hit: 0, name: names[index] || `UNIT-${index + 1}` };
   }
 
   function loop(now) {
     if (!game) return;
     const dt = Math.min((now - lastTime) / 1000, .035); lastTime = now;
-    if (!game.over && game.countdown === 0) { elapsed = (now - matchStart - 2100) / 1000; update(dt); }
+    if (!game.over && game.countdown === 0) { if (game.onlineClient) sendClientInput(); else { elapsed = (now - matchStart - 2100) / 1000; update(dt); } }
     draw(); renderRoster(); $("matchClock").textContent = formatTime(Math.max(0, elapsed));
     if (!game.over) animationId = requestAnimationFrame(loop);
   }
@@ -100,7 +156,7 @@
     for (const tank of game.tanks) {
       if (!tank.alive) { tank.respawn -= dt; if (tank.respawn <= 0 && selectedMode !== "duel") respawnTank(tank); continue; }
       tank.cool = Math.max(0, tank.cool - dt); tank.flash = Math.max(0, tank.flash - dt); tank.hit = Math.max(0, tank.hit - dt);
-      const intent = tank.human ? humanIntent(tank) : botIntent(tank, dt);
+      const intent = tank.remote ? tank.input : tank.human ? humanIntent(tank) : botIntent(tank, dt);
       if (intent.x || intent.y) {
         const length = Math.hypot(intent.x, intent.y) || 1, speed = tank.human ? 165 : 128;
         tank.x += intent.x / length * speed * dt; tank.y += intent.y / length * speed * dt; tank.angle = Math.atan2(intent.y, intent.x);
@@ -114,8 +170,10 @@
     game.particles = game.particles.filter((particle) => particle.life > 0);
     const blueAlive = game.tanks.some((tank) => tank.team === "blue" && tank.alive), redAlive = game.tanks.some((tank) => tank.team === "red" && tank.alive);
     if (!blueAlive || !redAlive) finishMatch(blueAlive ? "blue" : "red");
+    if (game.onlineHost && performance.now() - network.broadcastTimer > 50) { network.broadcastTimer = performance.now(); broadcastState(); }
   }
   function humanIntent(tank) { const c = tank.control; return { x: (keys.has(c.right) ? 1 : 0) - (keys.has(c.left) ? 1 : 0), y: (keys.has(c.down) ? 1 : 0) - (keys.has(c.up) ? 1 : 0), fire: keys.has(c.fire) }; }
+  function sendClientInput() { if (!network.connection || !network.connection.open || !game || network.playerId === null) return; const tank = game.tanks.find((item) => item.id === network.playerId); if (tank) network.connection.send({ type: "input", playerId: network.playerId, input: humanIntent(tank) }); }
   function botIntent(tank, dt) {
     const enemies = game.tanks.filter((other) => other.team !== tank.team && other.alive); if (!enemies.length) return {x:0,y:0,fire:false};
     let target = enemies[0]; for (const enemy of enemies) if (Math.hypot(enemy.x - tank.x, enemy.y - tank.y) < Math.hypot(target.x - tank.x, target.y - tank.y)) target = enemy;
@@ -155,5 +213,5 @@
 
   function renderRoster() { if (!game) return; ["blue", "red"].forEach((team) => { const container = $(team + "Roster"); container.innerHTML = ""; game.tanks.filter((tank) => tank.team === team).forEach((tank) => { const entry = document.createElement("div"); entry.className = `roster-entry${tank.alive ? "" : " is-dead"}`; entry.innerHTML = `<div class="roster-name"><span>${tank.name}</span><span class="status">${tank.alive ? (tank.human ? "YOU" : "CPU") : "DOWN"}</span></div><div class="health-track"><div class="health-fill" style="width:${tank.health}%"></div></div>`; container.appendChild(entry); }); }); $("blueScore").textContent = game.tanks.filter((tank) => tank.team === "blue" && !tank.alive).length; $("redScore").textContent = game.tanks.filter((tank) => tank.team === "red" && !tank.alive).length; }
   function renderLegend() { if (!game) return; const active = game.tanks.filter((tank) => tank.human); $("controlsLegend").innerHTML = active.map((tank) => `<span class="control-chip"><strong>${tank.name}</strong> <em>${tank.control.label}</em> MOVE / <em>${tank.control.fireLabel}</em> FIRE</span>`).join(""); }
-  function finishMatch(winner) { if (game.over) return; game.over = true; game.winner = winner; game.tanks.filter((tank) => tank.team === winner).forEach((tank) => { if (tank.alive) burst(tank.x, tank.y, "spawn"); }); setTimeout(() => { if (!game) return; const data = modeData[game.mode], arena = arenaData[game.arena]; $("resultKicker").textContent = winner.toUpperCase() + " SQUAD"; $("resultKicker").className = `result-kicker ${winner === "blue" ? "blue-text" : "red-text"}`; $("resultTitle").textContent = winner === "blue" ? "ARENA SECURED" : "LINE BROKEN"; $("resultSummary").textContent = winner === "blue" ? "The opposition has been fully neutralized." : "Red command owns the battlefield. Rally and rematch."; $("resultTime").textContent = formatTime(elapsed); $("resultMode").textContent = data.versus; $("resultArena").textContent = arena.label; showScreen("results"); }, 800); }
+  function finishMatch(winner, fromNetwork = false) { if (!game || game.over) return; game.over = true; game.winner = winner; if (game.onlineHost && !fromNetwork) { network.connections.forEach((connection) => { if (connection.open) connection.send({ type: "finish", winner }); }); } game.tanks.filter((tank) => tank.team === winner).forEach((tank) => { if (tank.alive) burst(tank.x, tank.y, "spawn"); }); setTimeout(() => { if (!game) return; const data = modeData[game.mode], arena = arenaData[game.arena]; $("resultKicker").textContent = winner.toUpperCase() + " SQUAD"; $("resultKicker").className = `result-kicker ${winner === "blue" ? "blue-text" : "red-text"}`; $("resultTitle").textContent = winner === "blue" ? "ARENA SECURED" : "LINE BROKEN"; $("resultSummary").textContent = winner === "blue" ? "The opposition has been fully neutralized." : "Red command owns the battlefield. Rally and rematch."; $("resultTime").textContent = formatTime(elapsed); $("resultMode").textContent = data.versus; $("resultArena").textContent = arena.label; showScreen("results"); }, 800); }
 })();
