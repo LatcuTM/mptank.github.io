@@ -605,6 +605,9 @@
         human: tank.human,
         name: tank.name,
         kills: tank.kills
+        ,rapidUntil: tank.rapidUntil || 0
+        ,freezeUntil: tank.freezeUntil || 0
+        ,speedUntil: tank.speedUntil || 0
       })),
       shells: game.shells.map((shell) => ({
         x: shell.x,
@@ -886,6 +889,9 @@
       flash: 0,
       kills: 0,
       hit: 0,
+      rapidUntil: 0,
+      freezeUntil: 0,
+      speedUntil: 0,
       name: names[index % names.length] || `UNIT-${index + 1}`
     };
   }
@@ -929,14 +935,17 @@
       tank.cool = Math.max(0, tank.cool - dt);
       tank.flash = Math.max(0, tank.flash - dt);
       tank.hit = Math.max(0, tank.hit - dt);
+      const now = performance.now() / 1000;
+      const frozen = (tank.freezeUntil || 0) > now;
 
       const intent = tank.remote ? tank.input : tank.human ? humanIntent(tank) : botIntent(tank, dt);
       if(tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
       if(tank.human && !tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
 
+      if(frozen){ intent.x = 0; intent.y = 0; intent.fire = false; }
       if(intent.x || intent.y){
         const length = Math.hypot(intent.x, intent.y) || 1;
-        const speed = tank.human ? 165 : 128;
+        const speed = (tank.human ? 165 : 128) * ((tank.speedUntil || 0) > now ? 2 : 1);
         tank.x += intent.x / length * speed * dt;
         tank.y += intent.y / length * speed * dt;
         if(!tank.human) tank.angle = Math.atan2(intent.y, intent.x);
@@ -946,11 +955,9 @@
       if(intent.fire && tank.cool <= 0) fireShell(tank);
 
       for(const drop of game.healthDrops){
-        if(drop.active && tank.health < 100 && Math.hypot(tank.x - drop.x, tank.y - drop.y) < tank.r + 13){
+        if(drop.active && Math.hypot(tank.x - drop.x, tank.y - drop.y) < tank.r + 13){
           drop.active = false;
-          tank.health = Math.min(100, tank.health + 38);
-          burst(drop.x, drop.y, "heal");
-          if(tank.human) showToast(`${tank.name} // REPAIR CELL SECURED`, 1200);
+          applyDrop(tank, drop);
         }
       }
     }
@@ -1034,10 +1041,22 @@
     for(let attempt = 0; attempt < 30; attempt++){
       const x = random(65, W - 65), y = random(65, H - 65);
       if(hitWall(x, y, 16) || game.healthDrops.some((drop) => drop.active && Math.hypot(drop.x - x, drop.y - y) < 80)) continue;
-      game.healthDrops.push({ x, y, active: true });
-      showToast("REPAIR CELL DEPLOYED // +38 HP", 1400);
+      const kind = ["health", "rapid", "freeze", "speed"][Math.floor(Math.random() * 4)];
+      game.healthDrops.push({ x, y, kind, active: true });
+      showToast(`${dropLabel(kind)} DEPLOYED`, 1400);
       return;
     }
+  }
+
+  function dropLabel(kind){ return ({ health: "REPAIR CELL // +38 HP", rapid: "OVERDRIVE // 2X FIRE RATE", freeze: "CRYO TRAP // FREEZE 3 SEC", speed: "BOOST CELL // 2X SPEED 10 SEC" })[kind] || "POWER-UP"; }
+  function applyDrop(tank, drop){
+    const now = performance.now() / 1000;
+    if(drop.kind === "health") tank.health = Math.min(100, tank.health + 38);
+    if(drop.kind === "rapid") tank.rapidUntil = now + 15;
+    if(drop.kind === "freeze") tank.freezeUntil = now + 3;
+    if(drop.kind === "speed") tank.speedUntil = now + 10;
+    burst(drop.x, drop.y, drop.kind === "health" ? "heal" : "power");
+    if(tank.human) showToast(`${tank.name} // ${dropLabel(drop.kind)} SECURED`, 1300);
   }
 
   function botIntent(tank, dt){
@@ -1090,7 +1109,7 @@
   }
 
   function fireShell(tank){
-    tank.cool = 0.72;
+    tank.cool = (tank.rapidUntil || 0) > performance.now() / 1000 ? 0.36 : 0.72;
     const muzzle = 29;
     game.shells.push({
       x: tank.x + Math.cos(tank.angle) * muzzle,
@@ -1171,6 +1190,7 @@
     const palette = type === "hit" ? [colors.gold, "#fff5c2"]
       : type === "destroy" ? [colors.red, colors.gold, "#fff5c2"]
       : type === "heal" ? ["#8bf0a6", "#d8ffe2", "#fff"]
+      : type === "power" ? ["#d88bff", "#ffe09a", "#fff"]
       : [colors.blue, colors.blueLight, "#fff"];
     const count = type === "destroy" ? 24 : type === "muzzle" ? 7 : 10;
     for(let i = 0; i < count; i++){
@@ -1259,20 +1279,24 @@
 
   function drawHealthDrop(drop){
     if(!drop.active) return;
+    const dropColors = { health: ["#8bf0a6", "#8bf0a6"], rapid: ["#efbd60", "#ffe09a"], freeze: ["#78cfff", "#c7f2ff"], speed: ["#d88bff", "#efc7ff"] };
+    const palette = dropColors[drop.kind] || dropColors.health;
     const pulse = 1 + Math.sin(performance.now() / 180) * 0.08;
     ctx.save();
     ctx.translate(drop.x, drop.y);
     ctx.scale(pulse, pulse);
-    ctx.shadowColor = "#8bf0a6";
+    ctx.shadowColor = palette[0];
     ctx.shadowBlur = 18;
-    ctx.fillStyle = "rgba(79, 220, 130, .22)";
+    ctx.fillStyle = `${palette[0]}33`;
     ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.fill();
-    ctx.strokeStyle = "#8bf0a6";
+    ctx.strokeStyle = palette[0];
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, 0, 12, 0, TAU); ctx.stroke();
-    ctx.fillStyle = "#8bf0a6";
-    ctx.fillRect(-3, -8, 6, 16);
-    ctx.fillRect(-8, -3, 16, 6);
+    ctx.fillStyle = palette[1];
+    if(drop.kind === "rapid"){ ctx.fillRect(-3, -8, 6, 16); ctx.fillRect(2, -8, 4, 7); }
+    else if(drop.kind === "freeze"){ ctx.fillRect(-2, -8, 4, 16); ctx.fillRect(-8, -2, 16, 4); ctx.rotate(Math.PI / 4); ctx.fillRect(-2, -8, 4, 16); ctx.fillRect(-8, -2, 16, 4); }
+    else if(drop.kind === "speed"){ ctx.beginPath(); ctx.moveTo(5, -9); ctx.lineTo(-7, 0); ctx.lineTo(0, 1); ctx.lineTo(-5, 9); ctx.lineTo(8, -1); ctx.lineTo(1, -2); ctx.closePath(); ctx.fill(); }
+    else { ctx.fillRect(-3, -8, 6, 16); ctx.fillRect(-8, -3, 16, 6); }
     ctx.restore();
   }
 
