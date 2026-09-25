@@ -108,13 +108,13 @@
   // ── Name Helpers (Strict 12-char limit) ────────────────────────────────────
   function cleanName(value){
     const name = String(value || "").replace(/[^a-z0-9 _-]/gi,"").trim().slice(0, 12).toUpperCase();
-    return name || "VANGUARD";
+    return name || "PLAYER";
   }
 
   function playerName(){
     const waitInput = $("waitPlayerName");
     const mainInput = $("playerName");
-    const raw = waitInput && waitInput.value ? waitInput.value : (mainInput ? mainInput.value : "VANGUARD");
+    const raw = waitInput && waitInput.value ? waitInput.value : (mainInput ? mainInput.value : "PLAYER");
     return cleanName(raw);
   }
 
@@ -1354,7 +1354,7 @@
     ctx.fillStyle = primary;
     ctx.fillRect(-24, -34, 48 * (tank.health / 100), 3);
     ctx.fillStyle = "rgba(234,242,243,.8)";
-    ctx.font = "600 8px Space Grotesk";
+    ctx.font = "600 11px Space Grotesk";
     ctx.textAlign = "center";
     ctx.fillText(tank.name, 0, -39);
 
