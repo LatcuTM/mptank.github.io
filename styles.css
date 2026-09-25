@@ -106,10 +106,23 @@ select:focus { border-color: var(--blue); }
 .wait-player-name { font:600 12px var(--font-display); letter-spacing:.08em; color:var(--ink); }
 .wait-player-badge { font-size:7px; letter-spacing:.12em; color:var(--faint); padding:2px 6px; border:1px solid var(--line); background:rgba(4,13,24,.5); }
 .wait-host .wait-player-badge { color:var(--blue); border-color:rgba(76,200,223,.4); }
+.wait-player-badges { display:flex; gap:4px; align-items:center; }
 .wait-badge-ready { color:#8bf0a6; border-color:rgba(139,240,166,.4); }
+.wait-badge-you { color:var(--blue-bright); border-color:rgba(76,200,223,.5); background:rgba(76,200,223,.12); }
 .wait-actions { display:grid; grid-template-columns:1.3fr 1fr; gap:9px; margin-top:8px; }
 .wait-actions .launch-button { margin:0; min-height:46px; justify-content:center; gap:12px; font-size:13px; }
 .wait-actions .secondary-button { min-height:46px; }
+.wait-name-row { text-align:left; margin-bottom:16px; border:1px solid var(--line); background:rgba(4,13,24,.55); padding:10px 14px; }
+.wait-name-row label { display:block; font-size:8px; color:var(--faint); font-weight:600; margin-bottom:6px; letter-spacing:.15em; }
+.wait-name-row input { width:100%; height:36px; }
+.roster-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; vertical-align:middle; flex-shrink:0; }
+.roster-kills { font-size:9px; font-weight:700; color:var(--gold); font-family:var(--font-display); letter-spacing:.05em; margin-left:auto; }
+.roster-respawn { font-size:7px; color:var(--red); font-weight:600; letter-spacing:.05em; }
+.arena-layout.is-ffa { grid-template-columns: 155px minmax(0, 1fr) 185px; }
+.arena-layout.is-ffa .roster { max-height: 540px; overflow-y: auto; padding-right: 3px; }
+.roster::-webkit-scrollbar { width: 4px; }
+.roster::-webkit-scrollbar-track { background: rgba(4,13,24,.4); }
+.roster::-webkit-scrollbar-thumb { background: rgba(76,200,223,.4); border-radius: 2px; }
 
 @media (max-width: 1100px) { .mode-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .app-shell { padding: 0 20px; }.setup-grid { grid-template-columns: 1fr; }.briefing-panel { min-height: 0; }.arena-layout { grid-template-columns: 100px minmax(0, 1fr) 100px 100px; gap: 7px; }.team-sidebar { padding: 10px 7px; }.team-header { font-size: 7px; }.team-header strong { font-size: 19px; }.roster-name { font-size: 8px; }.controls-legend { font-size: 7px; } }

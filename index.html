@@ -60,8 +60,8 @@
                 <span class="mode-number">03</span>
                 <span class="mode-icon">◆◇◆</span>
                 <span class="mode-name">FREE FOR ALL</span>
-                <span class="mode-detail">FFA // 3 TANKS</span>
-                <span class="mode-description">No teams. No alliances. Last tank standing wins.</span>
+                <span class="mode-detail">FFA // UP TO 16 TANKS</span>
+                <span class="mode-description">No teams. No alliances. Everyone plays and respawns.</span>
               </button>
             </div>
 
@@ -134,6 +134,13 @@
             <strong id="waitRoomCode">——————</strong>
           </div>
 
+          <div class="wait-name-row">
+            <label for="waitPlayerName">CALLSIGN / NAME</label>
+            <div class="wait-name-input-wrap">
+              <input id="waitPlayerName" class="callsign-input" maxlength="12" value="VANGUARD" autocomplete="nickname" placeholder="NAME (MAX 12)" />
+            </div>
+          </div>
+
           <div class="wait-roster-wrap">
             <div class="wait-roster-header">
               <span>DEPLOYED UNITS</span>
@@ -159,8 +166,8 @@
           <div id="gameRoomBox" class="game-room-box is-hidden"><span>ROOM CODE</span><button id="gameRoomCode">—</button></div>
           <button id="quitButton" class="quit-button">EXIT MATCH <span>Esc</span></button>
         </div>
-        <div class="arena-layout">
-          <aside class="team-sidebar team-blue">
+        <div class="arena-layout" id="arenaLayout">
+          <aside class="team-sidebar team-blue" id="blueTeamSidebar">
             <div class="team-header"><span><i class="team-dot"></i> BLUE</span><strong id="blueScore">0</strong></div>
             <div id="blueRoster" class="roster"></div>
             <div class="team-tip">YOUR TANK <span>◆</span></div>
@@ -171,7 +178,7 @@
             <div id="countdown" class="countdown is-hidden">3</div>
             <div id="gameToast" class="game-toast is-hidden"></div>
           </div>
-          <aside class="team-sidebar team-red">
+          <aside class="team-sidebar team-red" id="redTeamSidebar">
             <div class="team-header"><span><i class="team-dot"></i> RED</span><strong id="redScore">0</strong></div>
             <div id="redRoster" class="roster"></div>
             <div class="team-tip">ENEMY <span>◆</span></div>

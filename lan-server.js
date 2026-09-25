@@ -31,7 +31,7 @@ websocket.on("connection", (socket) => {
       socket.role = "host"; socket.room = room; rooms.set(room, { host: socket, clients: new Map() }); send(socket, { type: "host-ready", room }); return;
     }
     if (message.type === "join") {
-      const room = rooms.get(String(message.room || "")); if (!room) return error(socket, "ROOM NOT FOUND // ASK THE HOST TO CREATE IT FIRST"); if (room.clients.size >= 7) return error(socket, "ROOM IS FULL");
+      const room = rooms.get(String(message.room || "")); if (!room) return error(socket, "ROOM NOT FOUND // ASK THE HOST TO CREATE IT FIRST"); if (room.clients.size >= 24) return error(socket, "ROOM IS FULL");
       socket.role = "client"; socket.room = String(message.room); room.clients.set(socket.id, socket); send(socket, { type: "joined", room: socket.room }); send(room.host, { type: "peer-join", peerId: socket.id }); return;
     }
     if (message.type === "send") {
