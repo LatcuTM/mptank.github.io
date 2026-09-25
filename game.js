@@ -30,6 +30,7 @@
   ];
   const names = ["VANGUARD", "SENTINEL", "RIPTIDE", "HAMMER", "WRAITH", "BULLDOG", "NOMAD", "TITAN"];
   const keys = new Set();
+  const mouse = { x: W / 2, y: H / 2, down: false, active: false };
   let selectedMode = "duel", selectedBattle = "bots", selectedArena = "foundry", selectedTransport = "internet";
   let game = null, animationId = 0, lastTime = 0, matchStart = 0, elapsed = 0;
   const network = { peer: null, role: null, roomId: "", playerId: null, connection: null, connections: new Map(), broadcastTimer: 0, socket: null, pendingTimer: null, transport: "internet" };
@@ -70,6 +71,10 @@
   $("quitButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
   window.addEventListener("keydown", (event) => { keys.add(event.code); if (event.code === "Escape" && game) { stopGame(); disconnectNetwork(); showScreen("lobby"); } if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault(); });
   window.addEventListener("keyup", (event) => keys.delete(event.code));
+  canvas.addEventListener("mousemove", (event) => { const rect = canvas.getBoundingClientRect(); mouse.x = (event.clientX - rect.left) / rect.width * W; mouse.y = (event.clientY - rect.top) / rect.height * H; mouse.active = true; });
+  canvas.addEventListener("mousedown", (event) => { if (event.button === 0) { mouse.down = true; event.preventDefault(); } });
+  window.addEventListener("mouseup", () => { mouse.down = false; });
+  canvas.addEventListener("mouseleave", () => { mouse.active = false; mouse.down = false; });
 
   function setNetworkStatus(message, state = "") { const status = $("networkStatus"); status.textContent = message; status.className = `network-status${state ? ` is-${state}` : ""}`; }
   function cleanName(value) { const name = String(value || "").replace(/[^a-z0-9 _-]/gi, "").trim().slice(0, 12).toUpperCase(); return name || "VANGUARD"; }
@@ -135,7 +140,7 @@
     if (!tank) { connection.send({ type: "error", message: "This room is full." }); return; }
     tank.human = true; tank.remote = true; tank.connId = connection.peer; tank.name = cleanName(requestedName); tank.input = { x: 0, y: 0, fire: false }; connection.send({ type: "init", playerId: tank.id, snapshot: serializeGame() }); setNetworkStatus(`ROOM ${network.roomId} // ${network.connections.size} REMOTE PLAYER(S)`, "good"); broadcastState();
   }
-  function serializeGame() { return { mode: game.mode, arena: game.arena, elapsed, tanks: game.tanks.map((tank) => ({ id: tank.id, team: tank.team, x: tank.x, y: tank.y, angle: tank.angle, health: tank.health, alive: tank.alive, human: tank.human, name: tank.name, kills: tank.kills })), shells: game.shells.map((shell) => ({ x: shell.x, y: shell.y, angle: shell.angle, team: shell.team })), particles: game.particles.slice(-60).map((particle) => ({ x: particle.x, y: particle.y, life: particle.life, size: particle.size, color: particle.color })) }; }
+  function serializeGame() { return { mode: game.mode, arena: game.arena, elapsed, tanks: game.tanks.map((tank) => ({ id: tank.id, team: tank.team, x: tank.x, y: tank.y, angle: tank.angle, health: tank.health, alive: tank.alive, human: tank.human, name: tank.name, kills: tank.kills })), shells: game.shells.map((shell) => ({ x: shell.x, y: shell.y, angle: shell.angle, team: shell.team })), healthDrops: game.healthDrops, particles: game.particles.slice(-60).map((particle) => ({ x: particle.x, y: particle.y, life: particle.life, size: particle.size, color: particle.color })) }; }
   function broadcastState() { if (network.role !== "host" || !game) return; const snapshot = { type: "state", snapshot: serializeGame() }; network.connections.forEach((connection) => { if (connection.open) connection.send(snapshot); }); }
   function handleClientMessage(message) {
     if (message.type === "init") { network.playerId = message.playerId; setRoomBadge(network.roomId); loadClientGame(message.snapshot); setNetworkStatus(`CONNECTED // YOU ARE ${game.tanks.find((tank) => tank.id === network.playerId).name}`, "good"); showScreen("game"); renderRoster(); renderLegend(); animationId = requestAnimationFrame(loop); }
@@ -143,15 +148,15 @@
     if (message.type === "finish") finishMatch(message.winner, true);
     if (message.type === "error") setNetworkStatus(message.message, "error");
   }
-  function loadClientGame(snapshot) { game = { mode: snapshot.mode, arena: snapshot.arena, tanks: [], shells: [], particles: [], winner: null, over: false, countdown: 0, onlineClient: true }; applySnapshot(snapshot); matchStart = performance.now() - snapshot.elapsed * 1000; lastTime = performance.now(); $("matchLabel").textContent = `// ${modeData[snapshot.mode].label} / ${arenaData[snapshot.arena].label}`; $("arenaLabel").textContent = arenaData[snapshot.arena].label; }
-  function applySnapshot(snapshot) { if (!game) return; game.mode = snapshot.mode; game.arena = snapshot.arena; elapsed = snapshot.elapsed; game.tanks = snapshot.tanks.map((item) => ({ ...item, r: 20, spawnX: item.x, spawnY: item.y, cool: 0, flash: 0, hit: 0, control: controls[item.id] || controls[0], remote: item.id !== network.playerId })); game.shells = snapshot.shells.map((item) => ({ ...item, speed: 0, life: .2 })); game.particles = snapshot.particles; }
+  function loadClientGame(snapshot) { game = { mode: snapshot.mode, arena: snapshot.arena, tanks: [], shells: [], healthDrops: [], particles: [], winner: null, over: false, countdown: 0, onlineClient: true }; applySnapshot(snapshot); matchStart = performance.now() - snapshot.elapsed * 1000; lastTime = performance.now(); $("matchLabel").textContent = `// ${modeData[snapshot.mode].label} / ${arenaData[snapshot.arena].label}`; $("arenaLabel").textContent = arenaData[snapshot.arena].label; }
+  function applySnapshot(snapshot) { if (!game) return; game.mode = snapshot.mode; game.arena = snapshot.arena; elapsed = snapshot.elapsed; game.tanks = snapshot.tanks.map((item) => ({ ...item, r: 20, spawnX: item.x, spawnY: item.y, cool: 0, flash: 0, hit: 0, control: item.id === network.playerId ? controls[0] : controls[item.id] || controls[0], remote: item.id !== network.playerId })); game.shells = snapshot.shells.map((item) => ({ ...item, speed: 0, life: .2 })); game.healthDrops = snapshot.healthDrops || []; game.particles = snapshot.particles; }
 
   function startMatch() { disconnectNetwork(); initializeMatch(false); }
   function startHostMatch() { initializeMatch(true); }
   function initializeMatch(onlineHost) {
     stopGame();
     const data = modeData[selectedMode];
-    game = { mode: selectedMode, arena: selectedArena, humanOnly: selectedBattle === "local", onlineHost, tanks: [], shells: [], particles: [], sparks: [], winner: null, over: false, countdown: 3, toast: null };
+    game = { mode: selectedMode, arena: selectedArena, humanOnly: selectedBattle === "local", onlineHost, tanks: [], shells: [], healthDrops: [], nextDropAt: 20, particles: [], sparks: [], winner: null, over: false, countdown: 3, toast: null };
     const blueSpawns = getSpawns("blue", data.roster), redSpawns = getSpawns("red", data.roster);
     for (let i = 0; i < data.roster; i++) {
       game.tanks.push(makeTank(i, "blue", blueSpawns[i], game.humanOnly || i === 0, controls[i]));
@@ -190,16 +195,19 @@
   }
 
   function update(dt) {
+    if (elapsed >= game.nextDropAt) { spawnHealthDrop(); game.nextDropAt += 20; }
     for (const tank of game.tanks) {
       if (!tank.alive) { tank.respawn -= dt; if (tank.respawn <= 0 && selectedMode !== "duel") respawnTank(tank); continue; }
       tank.cool = Math.max(0, tank.cool - dt); tank.flash = Math.max(0, tank.flash - dt); tank.hit = Math.max(0, tank.hit - dt);
       const intent = tank.remote ? tank.input : tank.human ? humanIntent(tank) : botIntent(tank, dt);
+      if (tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
       if (intent.x || intent.y) {
         const length = Math.hypot(intent.x, intent.y) || 1, speed = tank.human ? 165 : 128;
         tank.x += intent.x / length * speed * dt; tank.y += intent.y / length * speed * dt; tank.angle = Math.atan2(intent.y, intent.x);
         resolveTank(tank);
       }
       if (intent.fire && tank.cool <= 0) fireShell(tank);
+      for (const drop of game.healthDrops) { if (drop.active && tank.health < 100 && Math.hypot(tank.x - drop.x, tank.y - drop.y) < tank.r + 13) { drop.active = false; tank.health = Math.min(100, tank.health + 38); burst(drop.x, drop.y, "heal"); if (tank.human) showToast(`${tank.name} // REPAIR CELL SECURED`, 1200); } }
     }
     for (const shell of game.shells) { shell.x += Math.cos(shell.angle) * shell.speed * dt; shell.y += Math.sin(shell.angle) * shell.speed * dt; shell.life -= dt; if (shell.life <= 0 || shell.x < -20 || shell.x > W + 20 || shell.y < -20 || shell.y > H + 20) shell.dead = true; if (!shell.dead && hitWall(shell.x, shell.y, 4)) { shell.dead = true; burst(shell.x, shell.y, "wall"); } if (!shell.dead) { for (const tank of game.tanks) { if (!tank.alive || tank.team === shell.team) continue; if (Math.hypot(tank.x - shell.x, tank.y - shell.y) < tank.r + 5) { damageTank(tank, shell); shell.dead = true; break; } } } }
     game.shells = game.shells.filter((shell) => !shell.dead);
@@ -209,8 +217,9 @@
     if (!blueAlive || !redAlive) finishMatch(blueAlive ? "blue" : "red");
     if (game.onlineHost && performance.now() - network.broadcastTimer > 50) { network.broadcastTimer = performance.now(); broadcastState(); }
   }
-  function humanIntent(tank) { const c = tank.control; return { x: (keys.has(c.right) ? 1 : 0) - (keys.has(c.left) ? 1 : 0), y: (keys.has(c.down) ? 1 : 0) - (keys.has(c.up) ? 1 : 0), fire: keys.has(c.fire) }; }
+  function humanIntent(tank) { const c = tank.control; const angle = mouse.active ? Math.atan2(mouse.y - tank.y, mouse.x - tank.x) : tank.angle; return { x: (keys.has(c.right) ? 1 : 0) - (keys.has(c.left) ? 1 : 0), y: (keys.has(c.down) ? 1 : 0) - (keys.has(c.up) ? 1 : 0), fire: mouse.down || keys.has(c.fire), angle }; }
   function sendClientInput() { if (!network.connection || !network.connection.open || !game || network.playerId === null) return; const tank = game.tanks.find((item) => item.id === network.playerId); if (tank) network.connection.send({ type: "input", playerId: network.playerId, input: humanIntent(tank) }); }
+  function spawnHealthDrop() { for (let attempt = 0; attempt < 30; attempt++) { const x = random(65, W - 65), y = random(65, H - 65); if (hitWall(x, y, 16) || game.healthDrops.some((drop) => drop.active && Math.hypot(drop.x - x, drop.y - y) < 80)) continue; game.healthDrops.push({ x, y, active: true }); showToast("REPAIR CELL DEPLOYED // +38 HP", 1400); return; } }
   function botIntent(tank, dt) {
     const enemies = game.tanks.filter((other) => other.team !== tank.team && other.alive); if (!enemies.length) return {x:0,y:0,fire:false};
     let target = enemies[0]; for (const enemy of enemies) if (Math.hypot(enemy.x - tank.x, enemy.y - tank.y) < Math.hypot(target.x - tank.x, target.y - tank.y)) target = enemy;
@@ -227,10 +236,10 @@
   function fireShell(tank) { tank.cool = .72; const muzzle = 29; game.shells.push({ x: tank.x + Math.cos(tank.angle) * muzzle, y: tank.y + Math.sin(tank.angle) * muzzle, angle: tank.angle, speed: 510, life: 1.5, team: tank.team, owner: tank }); tank.flash = .09; burst(tank.x + Math.cos(tank.angle) * 29, tank.y + Math.sin(tank.angle) * 29, "muzzle"); }
   function damageTank(tank, shell) { tank.health -= 34; tank.hit = .16; burst(shell.x, shell.y, "hit"); if (tank.health <= 0) { tank.health = 0; tank.alive = false; tank.respawn = selectedMode === "duel" ? 999 : 2.8; shell.owner.kills++; burst(tank.x, tank.y, "destroy"); showToast(`${shell.owner.name} // TARGET DISABLED`, 1200); } }
   function respawnTank(tank) { tank.alive = true; tank.health = 100; tank.x = tank.spawnX + random(-18, 18); tank.y = tank.spawnY + random(-28, 28); burst(tank.x, tank.y, "spawn"); }
-  function burst(x, y, type) { const palette = type === "hit" ? [colors.gold, "#fff5c2"] : type === "destroy" ? [colors.red, colors.gold, "#fff5c2"] : [colors.blue, colors.blueLight, "#fff"]; const count = type === "destroy" ? 24 : type === "muzzle" ? 7 : 10; for (let i = 0; i < count; i++) { const angle = random(0, TAU), speed = type === "destroy" ? random(40, 160) : random(25, 95); game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: random(.18, type === "destroy" ? .85 : .42), size: random(1, type === "destroy" ? 4 : 2.5), color: palette[Math.floor(Math.random() * palette.length)] }); } }
+  function burst(x, y, type) { const palette = type === "hit" ? [colors.gold, "#fff5c2"] : type === "destroy" ? [colors.red, colors.gold, "#fff5c2"] : type === "heal" ? ["#8bf0a6", "#d8ffe2", "#fff"] : [colors.blue, colors.blueLight, "#fff"]; const count = type === "destroy" ? 24 : type === "muzzle" ? 7 : 10; for (let i = 0; i < count; i++) { const angle = random(0, TAU), speed = type === "destroy" ? random(40, 160) : random(25, 95); game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: random(.18, type === "destroy" ? .85 : .42), size: random(1, type === "destroy" ? 4 : 2.5), color: palette[Math.floor(Math.random() * palette.length)] }); } }
   function showToast(text, duration) { if (!game) return; const toast = $("gameToast"); toast.textContent = text; toast.classList.remove("is-hidden"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add("is-hidden"), duration); }
 
-  function draw() { ctx.clearRect(0, 0, W, H); drawArena(); for (const shell of game.shells) drawShell(shell); for (const tank of game.tanks) drawTank(tank); for (const particle of game.particles) drawParticle(particle); }
+  function draw() { ctx.clearRect(0, 0, W, H); drawArena(); for (const drop of game.healthDrops || []) drawHealthDrop(drop); for (const shell of game.shells) drawShell(shell); for (const tank of game.tanks) drawTank(tank); for (const particle of game.particles) drawParticle(particle); }
   function drawArena() {
     const arena = arenaData[game.arena]; ctx.fillStyle = game.arena === "sandline" ? "#2a281f" : "#0c1b24"; ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = .17; ctx.strokeStyle = game.arena === "sandline" ? "#d6ae67" : "#6a9da5"; ctx.lineWidth = 1; for (let x = 0; x < W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); } for (let y = 0; y < H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); } ctx.globalAlpha = 1;
@@ -239,6 +248,7 @@
     const gradient = ctx.createRadialGradient(600, 350, 10, 600, 350, 280); gradient.addColorStop(0, "rgba(76, 200, 223, .09)"); gradient.addColorStop(1, "rgba(76, 200, 223, 0)"); ctx.fillStyle = gradient; ctx.fillRect(180, 70, 840, 560);
   }
   function drawShell(shell) { ctx.save(); ctx.translate(shell.x, shell.y); ctx.rotate(shell.angle); ctx.fillStyle = "#fff4c2"; ctx.shadowColor = colors.gold; ctx.shadowBlur = 12; ctx.fillRect(-7, -2, 14, 4); ctx.restore(); }
+  function drawHealthDrop(drop) { if (!drop.active) return; const pulse = 1 + Math.sin(performance.now() / 180) * .08; ctx.save(); ctx.translate(drop.x, drop.y); ctx.scale(pulse, pulse); ctx.shadowColor = "#8bf0a6"; ctx.shadowBlur = 18; ctx.fillStyle = "rgba(79, 220, 130, .22)"; ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.fill(); ctx.strokeStyle = "#8bf0a6"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 12, 0, TAU); ctx.stroke(); ctx.fillStyle = "#8bf0a6"; ctx.fillRect(-3, -8, 6, 16); ctx.fillRect(-8, -3, 16, 6); ctx.restore(); }
   function drawParticle(particle) { ctx.globalAlpha = clamp(particle.life * 3, 0, 1); ctx.fillStyle = particle.color; ctx.fillRect(particle.x, particle.y, particle.size, particle.size); ctx.globalAlpha = 1; }
   function drawTank(tank) {
     if (!tank.alive) { ctx.save(); ctx.globalAlpha = .22; ctx.strokeStyle = tank.team === "blue" ? colors.blue : colors.red; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(tank.spawnX, tank.spawnY, 23, 0, TAU); ctx.stroke(); ctx.restore(); return; }

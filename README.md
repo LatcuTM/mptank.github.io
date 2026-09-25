@@ -32,5 +32,7 @@ No build command or package installation is needed.
 - Player 3: `I J K L` to move, `U` to fire
 - Player 4: `T F G H` to move, `Y` to fire
 - Warfront adds compact keyboard layouts shown in the arena HUD
+- Online players use `W A S D` to move, aim with the mouse, and hold left-click to fire. Both computers can use the same controls.
+- Green repair cells appear every 20 seconds and restore health when collected.
 
 Press `Esc` during a match to return to the lobby.
