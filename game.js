@@ -71,8 +71,9 @@
   $("quitButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
   window.addEventListener("keydown", (event) => { keys.add(event.code); if (event.code === "Escape" && game) { stopGame(); disconnectNetwork(); showScreen("lobby"); } if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault(); });
   window.addEventListener("keyup", (event) => keys.delete(event.code));
-  canvas.addEventListener("mousemove", (event) => { const rect = canvas.getBoundingClientRect(); mouse.x = (event.clientX - rect.left) / rect.width * W; mouse.y = (event.clientY - rect.top) / rect.height * H; mouse.active = true; });
-  canvas.addEventListener("mousedown", (event) => { if (event.button === 0) { mouse.down = true; event.preventDefault(); } });
+  function updateMousePosition(event) { const rect = canvas.getBoundingClientRect(); mouse.x = (event.clientX - rect.left) / rect.width * W; mouse.y = (event.clientY - rect.top) / rect.height * H; mouse.active = true; }
+  canvas.addEventListener("mousemove", updateMousePosition);
+  canvas.addEventListener("mousedown", (event) => { if (event.button === 0) { updateMousePosition(event); mouse.down = true; event.preventDefault(); } });
   window.addEventListener("mouseup", () => { mouse.down = false; });
   canvas.addEventListener("mouseleave", () => { mouse.active = false; mouse.down = false; });
 
@@ -201,9 +202,10 @@
       tank.cool = Math.max(0, tank.cool - dt); tank.flash = Math.max(0, tank.flash - dt); tank.hit = Math.max(0, tank.hit - dt);
       const intent = tank.remote ? tank.input : tank.human ? humanIntent(tank) : botIntent(tank, dt);
       if (tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
+      if (tank.human && !tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
       if (intent.x || intent.y) {
         const length = Math.hypot(intent.x, intent.y) || 1, speed = tank.human ? 165 : 128;
-        tank.x += intent.x / length * speed * dt; tank.y += intent.y / length * speed * dt; tank.angle = Math.atan2(intent.y, intent.x);
+        tank.x += intent.x / length * speed * dt; tank.y += intent.y / length * speed * dt; if (!tank.human) tank.angle = Math.atan2(intent.y, intent.x);
         resolveTank(tank);
       }
       if (intent.fire && tank.cool <= 0) fireShell(tank);
