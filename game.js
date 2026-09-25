@@ -10,7 +10,8 @@
   const modeData = {
     duel: { label: "DUEL", roster: 1, total: 2, versus: "1v1" },
     squad: { label: "SQUAD", roster: 2, total: 4, versus: "2v2" },
-    warfront: { label: "WARFRONT", roster: 4, total: 8, versus: "4v4" }
+    warfront: { label: "WARFRONT", roster: 4, total: 8, versus: "4v4" },
+    triple: { label: "TRIPLE THREAT", roster: 1, total: 3, versus: "1v1v1", teams: 3 }
   };
   const arenaData = {
     foundry: { label: "FOUNDRY RUN", walls: [{x: 280,y: 145,w: 180,h: 42},{x: 740,y: 145,w: 180,h: 42},{x: 280,y: 513,w: 180,h: 42},{x: 740,y: 513,w: 180,h: 42},{x: 540,y: 255,w: 120,h: 190}], color: "#28444b" },
@@ -18,6 +19,7 @@
     sandline: { label: "SANDLINE", walls: [{x: 210,y: 180,w: 160,h: 32},{x: 830,y: 180,w: 160,h: 32},{x: 210,y: 488,w: 160,h: 32},{x: 830,y: 488,w: 160,h: 32},{x: 480,y: 160,w: 240,h: 30},{x: 480,y: 510,w: 240,h: 30}], color: "#5a4c35" }
   };
   const colors = { blue: "#4cc8df", blueLight: "#8bf0f7", red: "#ef6e64", redLight: "#ff9b8d", ink: "#eaf2f3", muted: "#8d9da2" };
+  const teamColors = { blue: { primary: "#4cc8df", light: "#8bf0f7" }, red: { primary: "#ef6e64", light: "#ff9b8d" }, gold: { primary: "#efbd60", light: "#ffe09a" } };
   const controls = [
     {up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD",fire:"Space",label:"WASD",fireLabel:"SPACE"},
     {up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",fire:"Enter",label:"ARROWS",fireLabel:"ENTER"},
@@ -149,7 +151,7 @@
     if (message.type === "finish") finishMatch(message.winner, true);
     if (message.type === "error") setNetworkStatus(message.message, "error");
   }
-  function loadClientGame(snapshot) { game = { mode: snapshot.mode, arena: snapshot.arena, tanks: [], shells: [], healthDrops: [], particles: [], winner: null, over: false, countdown: 0, onlineClient: true }; applySnapshot(snapshot); matchStart = performance.now() - snapshot.elapsed * 1000; lastTime = performance.now(); $("matchLabel").textContent = `// ${modeData[snapshot.mode].label} / ${arenaData[snapshot.arena].label}`; $("arenaLabel").textContent = arenaData[snapshot.arena].label; }
+  function loadClientGame(snapshot) { game = { mode: snapshot.mode, arena: snapshot.arena, tanks: [], shells: [], healthDrops: [], particles: [], winner: null, over: false, countdown: 0, onlineClient: true }; applySnapshot(snapshot); matchStart = performance.now() - snapshot.elapsed * 1000; lastTime = performance.now(); $("matchLabel").textContent = `// ${modeData[snapshot.mode].label} / ${arenaData[snapshot.arena].label}`; $("arenaLabel").textContent = arenaData[snapshot.arena].label; $("goldTeam").classList.toggle("is-hidden", snapshot.mode !== "triple"); }
   function applySnapshot(snapshot) { if (!game) return; game.mode = snapshot.mode; game.arena = snapshot.arena; elapsed = snapshot.elapsed; game.tanks = snapshot.tanks.map((item) => ({ ...item, r: 20, spawnX: item.x, spawnY: item.y, cool: 0, flash: 0, hit: 0, control: item.id === network.playerId ? controls[0] : controls[item.id] || controls[0], remote: item.id !== network.playerId })); game.shells = snapshot.shells.map((item) => ({ ...item, speed: 0, life: .2 })); game.healthDrops = snapshot.healthDrops || []; game.particles = snapshot.particles; }
 
   function startMatch() { disconnectNetwork(); initializeMatch(false); }
@@ -158,15 +160,14 @@
     stopGame();
     const data = modeData[selectedMode];
     game = { mode: selectedMode, arena: selectedArena, humanOnly: selectedBattle === "local", onlineHost, tanks: [], shells: [], healthDrops: [], nextDropAt: 20, particles: [], sparks: [], winner: null, over: false, countdown: 3, toast: null };
-    const blueSpawns = getSpawns("blue", data.roster), redSpawns = getSpawns("red", data.roster);
-    for (let i = 0; i < data.roster; i++) {
-      game.tanks.push(makeTank(i, "blue", blueSpawns[i], game.humanOnly || i === 0, controls[i]));
-      game.tanks.push(makeTank(data.roster + i, "red", redSpawns[i], game.humanOnly ? true : false, controls[data.roster + i]));
-    }
+    const teams = data.teams === 3 ? ["blue", "red", "gold"] : ["blue", "red"];
+    let tankId = 0;
+    for (const team of teams) { const spawns = getSpawns(team, data.roster); for (let i = 0; i < data.roster; i++) { const human = game.humanOnly ? true : tankId === 0; game.tanks.push(makeTank(tankId, team, spawns[i], human, controls[tankId] || controls[0])); tankId++; } }
     game.tanks[0].name = playerName();
     matchStart = performance.now(); lastTime = matchStart; elapsed = 0;
     $("matchLabel").textContent = `// ${data.label} / ${arenaData[selectedArena].label}`;
     $("arenaLabel").textContent = arenaData[selectedArena].label;
+    $("goldTeam").classList.toggle("is-hidden", selectedMode !== "triple");
     setRoomBadge(onlineHost ? network.roomId : "");
     renderRoster(); renderLegend(); showScreen("game");
     $("countdown").classList.remove("is-hidden"); $("countdown").textContent = "3";
@@ -178,6 +179,7 @@
   function stopGame() { if (animationId) cancelAnimationFrame(animationId); animationId = 0; game = null; keys.clear(); }
 
   function getSpawns(team, count) {
+    if (team === "gold") return count === 1 ? [{ x: W / 2, y: 100 }] : Array.from({ length: count }, (_, i) => ({ x: W / 2 + (i - (count - 1) / 2) * 125, y: 100 }));
     const cx = team === "blue" ? 120 : W - 120;
     if (count === 1) return [{x: cx, y: H / 2}];
     const gap = count === 2 ? 170 : 125, start = H / 2 - ((count - 1) * gap) / 2;
@@ -198,7 +200,7 @@
   function update(dt) {
     if (elapsed >= game.nextDropAt) { spawnHealthDrop(); game.nextDropAt += 20; }
     for (const tank of game.tanks) {
-      if (!tank.alive) { tank.respawn -= dt; if (tank.respawn <= 0 && selectedMode !== "duel") respawnTank(tank); continue; }
+      if (!tank.alive) { tank.respawn -= dt; if (tank.respawn <= 0 && game.mode !== "duel" && game.mode !== "triple") respawnTank(tank); continue; }
       tank.cool = Math.max(0, tank.cool - dt); tank.flash = Math.max(0, tank.flash - dt); tank.hit = Math.max(0, tank.hit - dt);
       const intent = tank.remote ? tank.input : tank.human ? humanIntent(tank) : botIntent(tank, dt);
       if (tank.remote && Number.isFinite(intent.angle)) tank.angle = intent.angle;
@@ -215,8 +217,8 @@
     game.shells = game.shells.filter((shell) => !shell.dead);
     for (const particle of game.particles) { particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.life -= dt; particle.vx *= .97; particle.vy *= .97; }
     game.particles = game.particles.filter((particle) => particle.life > 0);
-    const blueAlive = game.tanks.some((tank) => tank.team === "blue" && tank.alive), redAlive = game.tanks.some((tank) => tank.team === "red" && tank.alive);
-    if (!blueAlive || !redAlive) finishMatch(blueAlive ? "blue" : "red");
+    const livingTeams = [...new Set(game.tanks.filter((tank) => tank.alive).map((tank) => tank.team))];
+    if (livingTeams.length <= 1) finishMatch(livingTeams[0] || "blue");
     if (game.onlineHost && performance.now() - network.broadcastTimer > 50) { network.broadcastTimer = performance.now(); broadcastState(); }
   }
   function humanIntent(tank) { const c = tank.control; const angle = mouse.active ? Math.atan2(mouse.y - tank.y, mouse.x - tank.x) : tank.angle; return { x: (keys.has(c.right) ? 1 : 0) - (keys.has(c.left) ? 1 : 0), y: (keys.has(c.down) ? 1 : 0) - (keys.has(c.up) ? 1 : 0), fire: mouse.down || keys.has(c.fire), angle }; }
@@ -253,14 +255,14 @@
   function drawHealthDrop(drop) { if (!drop.active) return; const pulse = 1 + Math.sin(performance.now() / 180) * .08; ctx.save(); ctx.translate(drop.x, drop.y); ctx.scale(pulse, pulse); ctx.shadowColor = "#8bf0a6"; ctx.shadowBlur = 18; ctx.fillStyle = "rgba(79, 220, 130, .22)"; ctx.beginPath(); ctx.arc(0, 0, 17, 0, TAU); ctx.fill(); ctx.strokeStyle = "#8bf0a6"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 12, 0, TAU); ctx.stroke(); ctx.fillStyle = "#8bf0a6"; ctx.fillRect(-3, -8, 6, 16); ctx.fillRect(-8, -3, 16, 6); ctx.restore(); }
   function drawParticle(particle) { ctx.globalAlpha = clamp(particle.life * 3, 0, 1); ctx.fillStyle = particle.color; ctx.fillRect(particle.x, particle.y, particle.size, particle.size); ctx.globalAlpha = 1; }
   function drawTank(tank) {
-    if (!tank.alive) { ctx.save(); ctx.globalAlpha = .22; ctx.strokeStyle = tank.team === "blue" ? colors.blue : colors.red; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(tank.spawnX, tank.spawnY, 23, 0, TAU); ctx.stroke(); ctx.restore(); return; }
-    const primary = tank.team === "blue" ? colors.blue : colors.red, light = tank.team === "blue" ? colors.blueLight : colors.redLight;
+    if (!tank.alive) { ctx.save(); ctx.globalAlpha = .22; ctx.strokeStyle = (teamColors[tank.team] || teamColors.red).primary; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(tank.spawnX, tank.spawnY, 23, 0, TAU); ctx.stroke(); ctx.restore(); return; }
+    const palette = teamColors[tank.team] || teamColors.red, primary = palette.primary, light = palette.light;
     ctx.save(); ctx.translate(tank.x, tank.y); ctx.rotate(tank.angle); if (tank.hit > 0) ctx.globalAlpha = .55;
     ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(-19, -15, 40, 34); ctx.fillStyle = primary; ctx.fillRect(-18, -15, 36, 30); ctx.fillStyle = "#0a151e"; ctx.fillRect(-15, -12, 30, 5); ctx.fillRect(-15, 7, 30, 5); ctx.fillStyle = light; ctx.fillRect(-12, -10, 24, 3); ctx.fillRect(-12, 7, 24, 3); ctx.fillStyle = primary; ctx.fillRect(-9, -11, 18, 22); ctx.strokeStyle = "rgba(234,242,243,.45)"; ctx.lineWidth = 1; ctx.strokeRect(-9, -11, 18, 22); ctx.fillStyle = light; ctx.fillRect(3, -3, 26, 6); ctx.fillStyle = "#09131c"; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill(); ctx.strokeStyle = light; ctx.stroke(); ctx.fillStyle = light; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill(); if (tank.flash > 0) { ctx.fillStyle = "#fff1ad"; ctx.shadowColor = colors.gold; ctx.shadowBlur = 20; ctx.beginPath(); ctx.arc(30, 0, 7 + tank.flash * 25, 0, TAU); ctx.fill(); } ctx.restore();
     ctx.save(); ctx.translate(tank.x, tank.y); ctx.fillStyle = "rgba(3, 10, 17, .7)"; ctx.fillRect(-24, -34, 48, 3); ctx.fillStyle = primary; ctx.fillRect(-24, -34, 48 * (tank.health / 100), 3); ctx.fillStyle = "rgba(234,242,243,.8)"; ctx.font = "600 8px Space Grotesk"; ctx.textAlign = "center"; ctx.fillText(tank.name, 0, -39); if (tank.human) { ctx.fillStyle = light; ctx.font = "700 7px Space Grotesk"; ctx.fillText("YOU", 0, 35); } ctx.restore();
   }
 
-  function renderRoster() { if (!game) return; ["blue", "red"].forEach((team) => { const container = $(team + "Roster"); container.innerHTML = ""; game.tanks.filter((tank) => tank.team === team).forEach((tank) => { const entry = document.createElement("div"); entry.className = `roster-entry${tank.alive ? "" : " is-dead"}`; entry.innerHTML = `<div class="roster-name"><span>${tank.name}</span><span class="status">${tank.alive ? (tank.human ? "YOU" : "CPU") : "DOWN"}</span></div><div class="health-track"><div class="health-fill" style="width:${tank.health}%"></div></div>`; container.appendChild(entry); }); }); $("blueScore").textContent = game.tanks.filter((tank) => tank.team === "blue" && !tank.alive).length; $("redScore").textContent = game.tanks.filter((tank) => tank.team === "red" && !tank.alive).length; }
+  function renderRoster() { if (!game) return; ["blue", "red", "gold"].forEach((team) => { const container = $(team + "Roster"); if (!container) return; container.innerHTML = ""; game.tanks.filter((tank) => tank.team === team).forEach((tank) => { const entry = document.createElement("div"); entry.className = `roster-entry${tank.alive ? "" : " is-dead"}`; entry.innerHTML = `<div class="roster-name"><span>${tank.name}</span><span class="status">${tank.alive ? (tank.human ? "YOU" : "CPU") : "DOWN"}</span></div><div class="health-track"><div class="health-fill" style="width:${tank.health}%"></div></div>`; container.appendChild(entry); }); }); $("blueScore").textContent = game.tanks.filter((tank) => tank.team === "blue" && !tank.alive).length; $("redScore").textContent = game.tanks.filter((tank) => tank.team === "red" && !tank.alive).length; $("goldScore").textContent = game.tanks.filter((tank) => tank.team === "gold" && !tank.alive).length; }
   function renderLegend() { if (!game) return; const active = game.tanks.filter((tank) => tank.human); $("controlsLegend").innerHTML = active.map((tank) => `<span class="control-chip"><strong>${tank.name}</strong> <em>${tank.control.label}</em> MOVE / <em>${tank.control.fireLabel}</em> FIRE</span>`).join(""); }
-  function finishMatch(winner, fromNetwork = false) { if (!game || game.over) return; game.over = true; game.winner = winner; if (game.onlineHost && !fromNetwork) { network.connections.forEach((connection) => { if (connection.open) connection.send({ type: "finish", winner }); }); } game.tanks.filter((tank) => tank.team === winner).forEach((tank) => { if (tank.alive) burst(tank.x, tank.y, "spawn"); }); setTimeout(() => { if (!game) return; const data = modeData[game.mode], arena = arenaData[game.arena]; $("resultKicker").textContent = winner.toUpperCase() + " SQUAD"; $("resultKicker").className = `result-kicker ${winner === "blue" ? "blue-text" : "red-text"}`; $("resultTitle").textContent = winner === "blue" ? "ARENA SECURED" : "LINE BROKEN"; $("resultSummary").textContent = winner === "blue" ? "The opposition has been fully neutralized." : "Red command owns the battlefield. Rally and rematch."; $("resultTime").textContent = formatTime(elapsed); $("resultMode").textContent = data.versus; $("resultArena").textContent = arena.label; showScreen("results"); }, 800); }
+  function finishMatch(winner, fromNetwork = false) { if (!game || game.over) return; game.over = true; game.winner = winner; if (game.onlineHost && !fromNetwork) { network.connections.forEach((connection) => { if (connection.open) connection.send({ type: "finish", winner }); }); } game.tanks.filter((tank) => tank.team === winner).forEach((tank) => { if (tank.alive) burst(tank.x, tank.y, "spawn"); }); setTimeout(() => { if (!game) return; const data = modeData[game.mode], arena = arenaData[game.arena], winnerName = winner === "gold" ? "GOLD" : winner.toUpperCase(); $("resultKicker").textContent = winnerName + " SQUAD"; $("resultKicker").className = `result-kicker ${winner === "blue" ? "blue-text" : winner === "gold" ? "gold-text" : "red-text"}`; $("resultTitle").textContent = game.mode === "triple" ? "LAST TANK STANDING" : winner === "blue" ? "ARENA SECURED" : "LINE BROKEN"; $("resultSummary").textContent = game.mode === "triple" ? `${winnerName} owns the battlefield.` : winner === "blue" ? "The opposition has been fully neutralized." : "Red command owns the battlefield. Rally and rematch."; $("resultTime").textContent = formatTime(elapsed); $("resultMode").textContent = data.versus; $("resultArena").textContent = arena.label; showScreen("results"); }, 800); }
 })();

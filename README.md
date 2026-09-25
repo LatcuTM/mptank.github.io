@@ -1,6 +1,6 @@
 # IRONCLASH // Tank Arena
 
-IRONCLASH is a browser-based tank game with 1v1, 2v2, and 4v4 modes.
+IRONCLASH is a browser-based tank game with 1v1, 2v2, 4v4, and 1v1v1 free-for-all modes.
 
 ## Online multiplayer
 
