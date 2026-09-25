@@ -59,9 +59,9 @@
               <button class="mode-card" data-mode="triple">
                 <span class="mode-number">03</span>
                 <span class="mode-icon">◆◇◆</span>
-                <span class="mode-name">TRIPLE THREAT</span>
-                <span class="mode-detail">1v1v1 // 3 TANKS</span>
-                <span class="mode-description">Three crews enter. One tank leaves.</span>
+                <span class="mode-name">FREE FOR ALL</span>
+                <span class="mode-detail">FFA // 3 TANKS</span>
+                <span class="mode-description">No teams. No alliances. Last tank standing wins.</span>
               </button>
             </div>
 
@@ -161,25 +161,25 @@
         </div>
         <div class="arena-layout">
           <aside class="team-sidebar team-blue">
-            <div class="team-header"><span><i class="team-dot"></i> BLUE SQUAD</span><strong id="blueScore">0</strong></div>
+            <div class="team-header"><span><i class="team-dot"></i> BLUE</span><strong id="blueScore">0</strong></div>
             <div id="blueRoster" class="roster"></div>
-            <div class="team-tip">YOUR TEAM <span>◆</span></div>
+            <div class="team-tip">YOUR TANK <span>◆</span></div>
           </aside>
           <div class="canvas-wrap">
             <canvas id="gameCanvas" width="1200" height="700" aria-label="IRONCLASH game arena"></canvas>
-            <div class="canvas-hud"><span class="hud-corner tl"></span><span class="hud-corner tr"></span><span class="hud-corner bl"></span><span class="hud-corner br"></span><div class="arena-name"><span class="hud-dot"></span><span id="arenaLabel">FOUNDRY RUN</span></div><div class="objective-label">OBJECTIVE: <strong>ELIMINATE ENEMY TEAM</strong></div></div>
+            <div class="canvas-hud"><span class="hud-corner tl"></span><span class="hud-corner tr"></span><span class="hud-corner bl"></span><span class="hud-corner br"></span><div class="arena-name"><span class="hud-dot"></span><span id="arenaLabel">FOUNDRY RUN</span></div><div class="objective-label">OBJECTIVE: <strong id="objectiveLabel">ELIMINATE ENEMY TEAM</strong></div></div>
             <div id="countdown" class="countdown is-hidden">3</div>
             <div id="gameToast" class="game-toast is-hidden"></div>
           </div>
           <aside class="team-sidebar team-red">
-            <div class="team-header"><span><i class="team-dot"></i> RED SQUAD</span><strong id="redScore">0</strong></div>
+            <div class="team-header"><span><i class="team-dot"></i> RED</span><strong id="redScore">0</strong></div>
             <div id="redRoster" class="roster"></div>
-            <div class="team-tip">HOSTILE TEAM <span>◆</span></div>
+            <div class="team-tip">ENEMY <span>◆</span></div>
           </aside>
           <aside id="goldTeam" class="team-sidebar team-gold is-hidden">
-            <div class="team-header"><span><i class="team-dot"></i> GOLD SQUAD</span><strong id="goldScore">0</strong></div>
+            <div class="team-header"><span><i class="team-dot"></i> GOLD</span><strong id="goldScore">0</strong></div>
             <div id="goldRoster" class="roster"></div>
-            <div class="team-tip">HOSTILE TEAM <span>◆</span></div>
+            <div class="team-tip">ENEMY <span>◆</span></div>
           </aside>
         </div>
         <div id="controlsLegend" class="controls-legend"></div>

@@ -10,7 +10,7 @@
   const modeData = {
     duel:      { label: "DUEL",          roster: 1, total: 2, versus: "1v1" },
     squad:     { label: "SQUAD",         roster: 2, total: 4, versus: "2v2" },
-    triple:    { label: "TRIPLE THREAT", roster: 1, total: 3, versus: "1v1v1", teams: 3, ffa: true }
+    triple:    { label: "FREE FOR ALL", roster: 1, total: 3, versus: "FFA", teams: 3, ffa: true }
   };
   const arenaData = {
     foundry:  { label: "FOUNDRY RUN",  walls: [{x:280,y:145,w:180,h:42},{x:740,y:145,w:180,h:42},{x:280,y:513,w:180,h:42},{x:740,y:513,w:180,h:42},{x:540,y:255,w:120,h:190}], color:"#28444b" },
@@ -344,6 +344,7 @@
     matchStart=performance.now(); lastTime=matchStart; elapsed=0;
     $("matchLabel").textContent=`// ${data.label} / ${arenaData[selectedArena].label}`;
     $("arenaLabel").textContent=arenaData[selectedArena].label;
+    const objLabel=$("objectiveLabel"); if(objLabel) objLabel.textContent=isFFA?"LAST TANK STANDING":"ELIMINATE ENEMY TEAM";
     $("goldTeam").classList.toggle("is-hidden",selectedMode!=="triple");
     setRoomBadge(onlineHost?network.roomId:"");
     renderRoster(); renderLegend(); showScreen("game");
