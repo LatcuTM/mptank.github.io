@@ -50,11 +50,13 @@
     selectedBattle = button.dataset.battle;
     document.querySelectorAll("[data-battle]").forEach((item) => item.classList.toggle("is-selected", item === button));
     $("onlinePanel").classList.toggle("is-hidden", selectedBattle !== "online");
+    $("launchButton").querySelector("span").textContent = selectedBattle === "online" ? "CREATE / DEPLOY ROOM" : "DEPLOY TO ARENA";
   }));
   $("mapSelect").addEventListener("change", (event) => { selectedArena = event.target.value; });
-  $("launchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : setNetworkStatus("CREATE A ROOM OR JOIN ONE FIRST", "error")) : startMatch());
+  $("launchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : createRoom()) : startMatch());
   $("hostButton").addEventListener("click", createRoom);
   $("joinButton").addEventListener("click", joinRoom);
+  $("gameRoomCode").addEventListener("click", async () => { const code = $("gameRoomCode").textContent; if (code === "—") return; try { await navigator.clipboard.writeText(code); showToast("ROOM CODE COPIED // SEND IT TO YOUR FRIEND", 1800); } catch { showToast(`ROOM CODE // ${code}`, 2200); } });
   $("rematchButton").addEventListener("click", () => selectedBattle === "online" ? (network.role === "host" ? startHostMatch() : setNetworkStatus("THE HOST MUST START THE REMATCH", "error")) : startMatch());
   $("lobbyButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
   $("quitButton").addEventListener("click", () => { stopGame(); disconnectNetwork(); showScreen("lobby"); });
@@ -65,12 +67,13 @@
   function cleanName(value) { const name = String(value || "").replace(/[^a-z0-9 _-]/gi, "").trim().slice(0, 12).toUpperCase(); return name || "VANGUARD"; }
   function playerName() { return cleanName($("playerName").value); }
   function roomCode() { return `IC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`; }
-  function disconnectNetwork() { if (network.peer) network.peer.destroy(); network.peer = null; network.role = null; network.roomId = ""; network.playerId = null; network.connection = null; network.connections.clear(); }
+  function setRoomBadge(code) { const box = $("gameRoomBox"); box.classList.toggle("is-hidden", !code); $("gameRoomCode").textContent = code || "—"; }
+  function disconnectNetwork() { if (network.peer) network.peer.destroy(); network.peer = null; network.role = null; network.roomId = ""; network.playerId = null; network.connection = null; network.connections.clear(); setRoomBadge(""); }
   function requirePeer() { if (!window.Peer) { setNetworkStatus("PEERJS DID NOT LOAD // CHECK YOUR CONNECTION", "error"); return null; } return window.Peer; }
   function createRoom() {
     const Peer = requirePeer(); if (!Peer) return; disconnectNetwork(); const id = roomCode(); setNetworkStatus("OPENING SECURE ROOM...");
     network.role = "host"; network.roomId = id; network.peer = new Peer(id);
-    network.peer.on("open", () => { $("hostButton").textContent = id; $("roomInput").value = id; setNetworkStatus(`ROOM ${id} READY // SEND THE CODE TO YOUR FRIEND`, "good"); startHostMatch(); });
+    network.peer.on("open", () => { $("hostButton").textContent = id; $("roomInput").value = id; setNetworkStatus(`ROOM ${id} READY // SEND THE CODE TO YOUR FRIEND`, "good"); setRoomBadge(id); startHostMatch(); });
     network.peer.on("connection", (connection) => setupHostConnection(connection));
     network.peer.on("error", (error) => setNetworkStatus(`ROOM ERROR // ${error.type || "CONNECTION FAILED"}`, "error"));
   }
@@ -102,7 +105,7 @@
   function serializeGame() { return { mode: game.mode, arena: game.arena, elapsed, tanks: game.tanks.map((tank) => ({ id: tank.id, team: tank.team, x: tank.x, y: tank.y, angle: tank.angle, health: tank.health, alive: tank.alive, human: tank.human, name: tank.name, kills: tank.kills })), shells: game.shells.map((shell) => ({ x: shell.x, y: shell.y, angle: shell.angle, team: shell.team })), particles: game.particles.slice(-60).map((particle) => ({ x: particle.x, y: particle.y, life: particle.life, size: particle.size, color: particle.color })) }; }
   function broadcastState() { if (network.role !== "host" || !game) return; const snapshot = { type: "state", snapshot: serializeGame() }; network.connections.forEach((connection) => { if (connection.open) connection.send(snapshot); }); }
   function handleClientMessage(message) {
-    if (message.type === "init") { network.playerId = message.playerId; loadClientGame(message.snapshot); setNetworkStatus(`CONNECTED // YOU ARE ${game.tanks.find((tank) => tank.id === network.playerId).name}`, "good"); showScreen("game"); renderRoster(); renderLegend(); animationId = requestAnimationFrame(loop); }
+    if (message.type === "init") { network.playerId = message.playerId; setRoomBadge(network.roomId); loadClientGame(message.snapshot); setNetworkStatus(`CONNECTED // YOU ARE ${game.tanks.find((tank) => tank.id === network.playerId).name}`, "good"); showScreen("game"); renderRoster(); renderLegend(); animationId = requestAnimationFrame(loop); }
     if (message.type === "state" && game) applySnapshot(message.snapshot);
     if (message.type === "finish") finishMatch(message.winner, true);
     if (message.type === "error") setNetworkStatus(message.message, "error");
@@ -125,6 +128,7 @@
     matchStart = performance.now(); lastTime = matchStart; elapsed = 0;
     $("matchLabel").textContent = `// ${data.label} / ${arenaData[selectedArena].label}`;
     $("arenaLabel").textContent = arenaData[selectedArena].label;
+    setRoomBadge(onlineHost ? network.roomId : "");
     renderRoster(); renderLegend(); showScreen("game");
     $("countdown").classList.remove("is-hidden"); $("countdown").textContent = "3";
     setTimeout(() => { if (game) $("countdown").textContent = "2"; }, 700);
