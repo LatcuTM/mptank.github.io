@@ -738,7 +738,7 @@
       tanks: [],
       shells: [],
       healthDrops: [],
-      nextDropAt: 20,
+      nextDropAt: 8,
       particles: [],
       sparks: [],
       winner: null,
@@ -919,7 +919,7 @@
   function update(dt){
     if(elapsed >= game.nextDropAt){
       spawnHealthDrop();
-      game.nextDropAt += 20;
+      game.nextDropAt += 8;
     }
 
     for(const tank of game.tanks){
